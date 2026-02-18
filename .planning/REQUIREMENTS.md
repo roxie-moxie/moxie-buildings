@@ -13,8 +13,8 @@
 
 ### Data Model
 
-- [ ] **DATA-01**: Each unit record stores required fields: Unit #, Beds (Studio / Convertible / 1BR / 1BR+Den / 2BR / 3BR / 4BR+), Base monthly rent, Availability date, Neighborhood, Building name, Building website URL, Date of last scrape
-- [ ] **DATA-02**: Unit records store optional fields when source provides them: Floor plan, Number of baths, Square footage
+- [x] **DATA-01**: Each unit record stores required fields: Unit #, Beds (Studio / Convertible / 1BR / 1BR+Den / 2BR / 3BR / 4BR+), Base monthly rent, Availability date, Neighborhood, Building name, Building website URL, Date of last scrape
+- [x] **DATA-02**: Unit records store optional fields when source provides them: Floor plan, Number of baths, Square footage
 - [ ] **DATA-03**: Unit data from all platforms is normalized to the canonical format before storage (no platform-specific raw values in the database)
 
 ### Scraping — Tier 1 (REST APIs)
@@ -83,8 +83,8 @@
 | INFRA-01 | Phase 1 | Pending |
 | INFRA-02 | Phase 3 | Pending |
 | INFRA-03 | Phase 2 | Pending |
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
+| DATA-01 | Phase 1 | Complete |
+| DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Pending |
 | SCRAP-01 | Phase 2 | Pending |
 | SCRAP-02 | Phase 2 | Pending |

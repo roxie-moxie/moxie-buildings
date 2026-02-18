@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 1 of 5 (Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-17 — Roadmap created
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-18 — 01-01-PLAN completed
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 7%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 6 min
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-foundation | 1/3 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (6 min)
+- Trend: baseline established
 
 *Updated after each plan completion*
 
@@ -46,6 +46,10 @@ Recent decisions affecting current work:
 - [Pre-Phase 1]: Google Sheets as ongoing building list source of truth — pending
 - [Pre-Phase 1]: LLM fallback (Crawl4AI + Claude Haiku) for custom sites — pending
 - [Pre-Phase 1]: Daily scrape cadence at 2 AM — pending
+- [01-01]: platform field on buildings is plain String (no DB-level enum) — SQLite lacks native ENUM, enforced at app layer
+- [01-01]: Single models.py for all three tables — at 3 tables, per-file complexity outweighs benefits
+- [01-01]: non_canonical as boolean column on units (not separate table) — valid data for Phase 2 debugging, Phase 4 API filters WHERE non_canonical=false
+- [01-01]: Four indexes on units (bed_type, rent_cents, availability_date, building_id) — matching Phase 4 API filter columns
 
 ### Pending Todos
 
@@ -59,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Roadmap created, no phases planned yet
+Last session: 2026-02-18
+Stopped at: Completed 01-01-PLAN.md (project scaffold, models, migration)
 Resume file: None
