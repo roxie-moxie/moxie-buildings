@@ -30,10 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Optional fields (floor plan, baths, sqft) are stored when provided and silently absent when not — no null errors, no required-field violations
   4. All scraper output passes through a single shared normalizer before reaching the database — no platform-specific raw values (e.g., integer 0 for Studio, raw "0BR" strings) survive into stored unit records
   5. The local dev environment starts with a single command and includes a populated database with at least one building and one unit from a manual seed fixture
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md — Project scaffold, SQLAlchemy models, and Alembic initial migration
+- [ ] 01-02-PLAN.md — Normalizer (TDD): UnitInput Pydantic model, normalize() function, full test suite
+- [ ] 01-03-PLAN.md — Google Sheets sync, seed script, and dev bootstrap command
 
 ### Phase 2: Scrapers
 **Goal**: All ~400 buildings are covered by working scraper modules across three tiers — Tier 1 REST APIs, Tier 2 platform HTML scrapers, and Tier 3 LLM fallback — with each module validated against real data and normalized output confirmed
@@ -100,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/3 | Not started | - |
 | 2. Scrapers | 0/TBD | Not started | - |
 | 3. Scheduler | 0/TBD | Not started | - |
 | 4. API Layer | 0/TBD | Not started | - |
