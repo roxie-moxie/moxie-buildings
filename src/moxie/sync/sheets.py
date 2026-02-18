@@ -1,12 +1,12 @@
 """
 Google Sheets sync — pulls building list from the configured tab and upserts into the DB.
 
-Real sheet schema (Building Prices tab):
-  Column A (no header)  → building name
-  Website               → url (upsert key)
-  Neighborhood          → neighborhood
-  Managment             → management_company  (note: typo in source sheet)
-  All other columns (pricing, contact info, etc.) are ignored.
+Real sheet schema (Moxie Buildings 2.0 Beta — "Buildings" tab, 541 rows):
+  Building Name  → name
+  Website        → url (upsert key)
+  Neighborhood   → neighborhood
+  Managment      → management_company  (note: typo in source sheet)
+  All other columns (Building ID, Address, Phone, Email, etc.) are ignored.
 
 Entrypoint: moxie.sync.sheets:main (registered as `sheets-sync` in pyproject.toml)
 """
@@ -22,11 +22,10 @@ from sqlalchemy.orm import Session
 def _parse_rows(raw: list[list]) -> list[dict]:
     """Parse get_all_values() output into a list of building dicts.
 
-    Sheet structure:
-    - Column A (index 0) has no header; contains the building name.
-    - Remaining columns are identified by their header text.
+    Sheet structure (Buildings tab):
+    - All columns are identified by their header text.
     - Columns with blank headers (e.g. trailing empty columns) are skipped.
-    - Rows where both name and Website are blank are skipped (empty rows).
+    - Rows where both Building Name and Website are blank are skipped (empty rows).
 
     Returns list of dicts with keys: name, url, neighborhood, management_company.
     Rows without a Website URL are included with url="" so the caller can decide
@@ -47,7 +46,7 @@ def _parse_rows(raw: list[list]) -> list[dict]:
 
     buildings = []
     for row in raw[1:]:
-        name = str(row[0]).strip() if row else ""
+        name = cell(row, "Building Name")
         url = cell(row, "Website")
 
         if not name and not url:

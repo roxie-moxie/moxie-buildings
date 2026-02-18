@@ -16,22 +16,16 @@ from moxie.sync.sheets import sheets_sync, _parse_rows
 
 
 # ---------------------------------------------------------------------------
-# Real sheet headers (Building Prices tab) — used to build realistic raw data
+# Real sheet headers (Moxie Buildings 2.0 Beta — "Buildings" tab)
 # ---------------------------------------------------------------------------
 
 SHEET_HEADERS = [
-    "",               # Column A — building name, no header
-    "Neighborhood", "Date", "Comission", "Concession",
-    "Studio Gross", "Studio Net", "Conv. Gross", "Conv. Net",
-    "1b Gross", "1B Net", "1B+D Gross", "1B+D Net",
-    "2B Gross", "2B Net", "3B Gross", "3B Net",
-    "Website", "Laundry", "Months free", "Duration",
-    "Phone", "Email", "Parking", "Key words",
-    "Scheduling", "Invoicing", "Managment", "Address",
-    "Works with Guarantors", "Moxie",
+    "Building ID", "Building Name", "Neighborhood", "Comission", "Address",
+    "Managment", "Website", "Phone", "Email", "Laundry", "Amenities (short)",
+    "Pet Policy", "Parking", "Scheduling Notes", "Invoicing Notes", "Scraper Quality",
 ]
 
-_COL = {h: i for i, h in enumerate(SHEET_HEADERS) if h}
+_COL = {h: i for i, h in enumerate(SHEET_HEADERS)}
 
 
 def _make_row(
@@ -39,10 +33,12 @@ def _make_row(
     url="https://example.com/building",
     neighborhood="River North",
     management_company="Greystar",
+    building_id="",
 ) -> list:
     """Return a raw sheet row with the correct column positions."""
     row = [""] * len(SHEET_HEADERS)
-    row[0] = name
+    row[_COL["Building ID"]] = building_id
+    row[_COL["Building Name"]] = name
     row[_COL["Website"]] = url
     row[_COL["Neighborhood"]] = neighborhood
     row[_COL["Managment"]] = management_company
@@ -138,7 +134,7 @@ class TestParseRows:
 
     def test_blank_trailing_columns_ignored(self):
         headers_with_blanks = SHEET_HEADERS + ["", ""]
-        row = _make_row() + ["junk", "junk"]
+        row = _make_row() + ["", ""]
         result = _parse_rows([headers_with_blanks, row])
         assert len(result) == 1
         assert result[0]["name"] == "Test Building"
