@@ -1,5 +1,5 @@
 """
-Unit tests for moxie.sync.sheets.sheets_sync().
+Unit tests for moxie.sync.sheets.
 
 All external calls (gspread, service account) are mocked. DB tests use an
 in-memory SQLite session so no external state is required.
@@ -12,7 +12,57 @@ from sqlalchemy.orm import sessionmaker
 
 from moxie.config import GOOGLE_SHEETS_TAB_NAME
 from moxie.db.models import Base, Building
-from moxie.sync.sheets import sheets_sync
+from moxie.sync.sheets import sheets_sync, _parse_rows
+
+
+# ---------------------------------------------------------------------------
+# Real sheet headers (Building Prices tab) — used to build realistic raw data
+# ---------------------------------------------------------------------------
+
+SHEET_HEADERS = [
+    "",               # Column A — building name, no header
+    "Neighborhood", "Date", "Comission", "Concession",
+    "Studio Gross", "Studio Net", "Conv. Gross", "Conv. Net",
+    "1b Gross", "1B Net", "1B+D Gross", "1B+D Net",
+    "2B Gross", "2B Net", "3B Gross", "3B Net",
+    "Website", "Laundry", "Months free", "Duration",
+    "Phone", "Email", "Parking", "Key words",
+    "Scheduling", "Invoicing", "Managment", "Address",
+    "Works with Guarantors", "Moxie",
+]
+
+_COL = {h: i for i, h in enumerate(SHEET_HEADERS) if h}
+
+
+def _make_row(
+    name="Test Building",
+    url="https://example.com/building",
+    neighborhood="River North",
+    management_company="Greystar",
+) -> list:
+    """Return a raw sheet row with the correct column positions."""
+    row = [""] * len(SHEET_HEADERS)
+    row[0] = name
+    row[_COL["Website"]] = url
+    row[_COL["Neighborhood"]] = neighborhood
+    row[_COL["Managment"]] = management_company
+    return row
+
+
+def _raw(*rows) -> list[list]:
+    """Wrap data rows with the header row to form get_all_values() output."""
+    return [SHEET_HEADERS] + list(rows)
+
+
+def _mock_gc(raw: list[list]) -> MagicMock:
+    """Return a mocked gspread client that serves the given raw values."""
+    mock_ws = MagicMock()
+    mock_ws.get_all_values.return_value = raw
+    mock_sh = MagicMock()
+    mock_sh.worksheet.return_value = mock_ws
+    mock_gc = MagicMock()
+    mock_gc.open_by_key.return_value = mock_sh
+    return mock_gc
 
 
 # ---------------------------------------------------------------------------
@@ -31,315 +81,205 @@ def db():
 
 
 # ---------------------------------------------------------------------------
-# Helper: build a mock gspread worksheet
+# Test _parse_rows — pure parsing, no DB or network
 # ---------------------------------------------------------------------------
 
-HEADERS = ["name", "url", "neighborhood", "management_company", "platform",
-           "rentcafe_property_id", "rentcafe_api_token"]
+class TestParseRows:
+    def test_building_name_from_column_a(self):
+        result = _parse_rows(_raw(_make_row(name="The Reed")))
+        assert result[0]["name"] == "The Reed"
 
+    def test_url_from_website_column(self):
+        result = _parse_rows(_raw(_make_row(url="https://thereed.com")))
+        assert result[0]["url"] == "https://thereed.com"
 
-def _sample_row(
-    name="Test Building",
-    url="https://example.com/building",
-    neighborhood="River North",
-    management_company="Greystar",
-    platform="llm",
-    rentcafe_property_id="",
-    rentcafe_api_token="",
-) -> dict:
-    return {
-        "name": name,
-        "url": url,
-        "neighborhood": neighborhood,
-        "management_company": management_company,
-        "platform": platform,
-        "rentcafe_property_id": rentcafe_property_id,
-        "rentcafe_api_token": rentcafe_api_token,
-    }
+    def test_neighborhood_mapped(self):
+        result = _parse_rows(_raw(_make_row(neighborhood="South Loop")))
+        assert result[0]["neighborhood"] == "South Loop"
 
+    def test_management_company_from_managment_column(self):
+        result = _parse_rows(_raw(_make_row(management_company="Related Midwest")))
+        assert result[0]["management_company"] == "Related Midwest"
 
-def _rows_to_raw(rows: list[dict], extra_blank_cols: int = 0) -> list[list]:
-    """Convert list[dict] rows to get_all_values() format (list of lists).
+    def test_blank_neighborhood_returns_none(self):
+        result = _parse_rows(_raw(_make_row(neighborhood="")))
+        assert result[0]["neighborhood"] is None
 
-    Optionally appends blank header columns to simulate real sheets with
-    trailing empty columns.
-    """
-    blank_cols = [""] * extra_blank_cols
-    header_row = HEADERS + blank_cols
-    data_rows = [
-        [row.get(h, "") for h in HEADERS] + blank_cols
-        for row in rows
-    ]
-    return [header_row] + data_rows
+    def test_blank_management_returns_none(self):
+        result = _parse_rows(_raw(_make_row(management_company="")))
+        assert result[0]["management_company"] is None
 
+    def test_blank_rows_skipped(self):
+        blank = [""] * len(SHEET_HEADERS)
+        result = _parse_rows(_raw(_make_row(), blank, _make_row(url="https://other.com")))
+        assert len(result) == 2
 
-def _make_mock_worksheet(rows: list[dict], extra_blank_cols: int = 0):
-    """Return a mocked gspread worksheet using get_all_values() format."""
-    mock_ws = MagicMock()
-    mock_ws.get_all_values.return_value = _rows_to_raw(rows, extra_blank_cols)
-    mock_sh = MagicMock()
-    mock_sh.worksheet.return_value = mock_ws
-    mock_gc = MagicMock()
-    mock_gc.open_by_key.return_value = mock_sh
-    return mock_gc
+    def test_row_without_url_included_with_empty_url(self):
+        """Rows with a name but no URL are returned — caller decides to skip."""
+        result = _parse_rows(_raw(_make_row(url="")))
+        assert result[0]["url"] == ""
+        assert result[0]["name"] == "Test Building"
+
+    def test_pricing_columns_not_in_output(self):
+        result = _parse_rows(_raw(_make_row()))
+        assert "Studio Gross" not in result[0]
+        assert "1B Net" not in result[0]
+        assert "Website" not in result[0]
+
+    def test_only_expected_keys_in_output(self):
+        result = _parse_rows(_raw(_make_row()))
+        assert set(result[0].keys()) == {"name", "url", "neighborhood", "management_company"}
+
+    def test_empty_raw_returns_empty_list(self):
+        assert _parse_rows([]) == []
+
+    def test_header_only_returns_empty_list(self):
+        assert _parse_rows([SHEET_HEADERS]) == []
+
+    def test_blank_trailing_columns_ignored(self):
+        headers_with_blanks = SHEET_HEADERS + ["", ""]
+        row = _make_row() + ["junk", "junk"]
+        result = _parse_rows([headers_with_blanks, row])
+        assert len(result) == 1
+        assert result[0]["name"] == "Test Building"
+
+    def test_multiple_buildings_all_parsed(self):
+        result = _parse_rows(_raw(
+            _make_row(name="Building A", url="https://a.com"),
+            _make_row(name="Building B", url="https://b.com"),
+        ))
+        assert len(result) == 2
+        assert result[0]["name"] == "Building A"
+        assert result[1]["name"] == "Building B"
 
 
 # ---------------------------------------------------------------------------
-# Test 1: New buildings are added — added count increments
+# Test sheets_sync — DB upsert logic with mocked gspread
 # ---------------------------------------------------------------------------
 
 class TestNewBuildings:
     def test_single_new_building_added(self, db):
-        rows = [_sample_row(url="https://example.com/a")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(url="https://example.com/a"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
-
         assert result["added"] == 1
         assert result["updated"] == 0
         assert result["deleted"] == 0
 
     def test_multiple_new_buildings_added(self, db):
-        rows = [
-            _sample_row(url="https://example.com/a"),
-            _sample_row(url="https://example.com/b"),
-            _sample_row(url="https://example.com/c"),
-        ]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(
+            _make_row(url="https://example.com/a"),
+            _make_row(url="https://example.com/b"),
+            _make_row(url="https://example.com/c"),
+        )
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
-
         assert result["added"] == 3
-        assert result["updated"] == 0
-        assert result["deleted"] == 0
 
     def test_new_building_appears_in_db(self, db):
-        rows = [_sample_row(name="River Tower", url="https://example.com/river")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(name="River Tower", url="https://rivertower.com"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             sheets_sync(db)
-
-        building = db.query(Building).filter_by(url="https://example.com/river").first()
+        building = db.query(Building).filter_by(url="https://rivertower.com").first()
         assert building is not None
         assert building.name == "River Tower"
         assert building.last_scrape_status == "never"
 
 
-# ---------------------------------------------------------------------------
-# Test 2: Existing buildings (same URL) are updated — no duplicates
-# ---------------------------------------------------------------------------
-
 class TestExistingBuildingsUpdated:
     def test_existing_building_updated_not_duplicated(self, db):
-        # Pre-populate DB with one building
-        existing = Building(
-            name="Old Name",
-            url="https://example.com/building",
-            last_scrape_status="never",
-        )
-        db.add(existing)
+        db.add(Building(name="Old Name", url="https://example.com/b", last_scrape_status="never"))
         db.commit()
 
-        # Sheet has same URL but new name
-        rows = [_sample_row(name="New Name", url="https://example.com/building")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(name="New Name", url="https://example.com/b"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
 
         assert result["added"] == 0
         assert result["updated"] == 1
-        assert result["deleted"] == 0
-
-        # Verify only one record exists and name was updated
         buildings = db.query(Building).all()
         assert len(buildings) == 1
         assert buildings[0].name == "New Name"
 
-    def test_updated_building_fields_are_persisted(self, db):
-        existing = Building(
-            name="Old Name",
-            url="https://example.com/building",
-            neighborhood="Old Neighborhood",
-            last_scrape_status="never",
-        )
-        db.add(existing)
+    def test_neighborhood_and_mgmt_updated(self, db):
+        db.add(Building(name="Tower", url="https://example.com/b",
+                        neighborhood="Old Hood", last_scrape_status="never"))
         db.commit()
 
-        rows = [_sample_row(
-            name="New Name",
-            url="https://example.com/building",
-            neighborhood="West Loop",
-            management_company="Golub",
-            platform="platform",
-        )]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(url="https://example.com/b",
+                             neighborhood="West Loop", management_company="Golub"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             sheets_sync(db)
 
         db.expire_all()
-        updated = db.query(Building).filter_by(url="https://example.com/building").first()
-        assert updated.name == "New Name"
-        assert updated.neighborhood == "West Loop"
-        assert updated.management_company == "Golub"
-        assert updated.platform == "platform"
+        b = db.query(Building).filter_by(url="https://example.com/b").first()
+        assert b.neighborhood == "West Loop"
+        assert b.management_company == "Golub"
 
-
-# ---------------------------------------------------------------------------
-# Test 3: Buildings missing from Sheet are deleted from DB
-# ---------------------------------------------------------------------------
 
 class TestMissingBuildingsDeleted:
     def test_building_not_in_sheet_is_deleted(self, db):
-        # Add a building to DB that isn't in the Sheet
-        building_to_delete = Building(
-            name="Gone Building",
-            url="https://example.com/gone",
-            last_scrape_status="never",
-        )
-        db.add(building_to_delete)
+        db.add(Building(name="Gone", url="https://example.com/gone", last_scrape_status="never"))
         db.commit()
 
-        # Sheet has a different building
-        rows = [_sample_row(url="https://example.com/present")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(url="https://example.com/present"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
 
         assert result["deleted"] == 1
-        assert result["added"] == 1
-
-        # Verify the gone building is no longer in DB
-        gone = db.query(Building).filter_by(url="https://example.com/gone").first()
-        assert gone is None
+        assert db.query(Building).filter_by(url="https://example.com/gone").first() is None
 
     def test_delete_count_matches_missing_buildings(self, db):
         for i in range(3):
-            db.add(Building(
-                name=f"Building {i}",
-                url=f"https://example.com/old-{i}",
-                last_scrape_status="never",
-            ))
+            db.add(Building(name=f"Old {i}", url=f"https://example.com/old-{i}",
+                            last_scrape_status="never"))
         db.commit()
 
-        # Sheet has only new buildings
-        rows = [_sample_row(url="https://example.com/new")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(url="https://example.com/new"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
 
         assert result["deleted"] == 3
         assert result["added"] == 1
 
 
-# ---------------------------------------------------------------------------
-# Test 4: len(rows) < 1 raises ValueError
-# ---------------------------------------------------------------------------
-
-class TestEmptyRowsGuard:
-    def test_empty_rows_raises_value_error(self, db):
+class TestEmptyAndNoURLGuard:
+    def test_empty_raw_raises_value_error(self, db):
         mock_ws = MagicMock()
         mock_ws.get_all_values.return_value = []
         mock_sh = MagicMock()
         mock_sh.worksheet.return_value = mock_ws
-        mock_gc = MagicMock()
-        mock_gc.open_by_key.return_value = mock_sh
+        mock_gc_obj = MagicMock()
+        mock_gc_obj.open_by_key.return_value = mock_sh
 
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            with pytest.raises(ValueError, match="suspiciously few rows"):
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc_obj):
+            with pytest.raises(ValueError, match="no buildings with a URL"):
                 sheets_sync(db)
 
-    def test_header_only_sheet_raises_value_error(self, db):
-        """A sheet with only a header row and no data rows is treated as empty."""
-        mock_ws = MagicMock()
-        mock_ws.get_all_values.return_value = [HEADERS]  # header but no data
-        mock_sh = MagicMock()
-        mock_sh.worksheet.return_value = mock_ws
-        mock_gc = MagicMock()
-        mock_gc.open_by_key.return_value = mock_sh
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            with pytest.raises(ValueError, match="suspiciously few rows"):
+    def test_all_rows_missing_url_raises_value_error(self, db):
+        """If every row has a name but no Website, sync can't proceed."""
+        raw = _raw(_make_row(url=""), _make_row(url=""))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            with pytest.raises(ValueError, match="no buildings with a URL"):
                 sheets_sync(db)
 
 
-# ---------------------------------------------------------------------------
-# Test 5: Empty string rentcafe fields stored as None
-# ---------------------------------------------------------------------------
-
-class TestEmptyStringToNone:
-    def test_empty_rentcafe_property_id_stored_as_none(self, db):
-        rows = [_sample_row(
-            url="https://example.com/api-building",
-            rentcafe_property_id="",  # empty string from Sheet
-        )]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            sheets_sync(db)
-
-        building = db.query(Building).filter_by(url="https://example.com/api-building").first()
-        assert building.rentcafe_property_id is None, (
-            f"Expected None, got {building.rentcafe_property_id!r}"
+class TestSkippedRows:
+    def test_row_without_url_counted_as_skipped(self, db):
+        raw = _raw(
+            _make_row(name="Has URL", url="https://example.com/a"),
+            _make_row(name="No URL", url=""),
         )
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            result = sheets_sync(db)
 
-    def test_empty_rentcafe_api_token_stored_as_none(self, db):
-        rows = [_sample_row(
-            url="https://example.com/api-building",
-            rentcafe_api_token="",  # empty string from Sheet
-        )]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            sheets_sync(db)
-
-        building = db.query(Building).filter_by(url="https://example.com/api-building").first()
-        assert building.rentcafe_api_token is None, (
-            f"Expected None, got {building.rentcafe_api_token!r}"
-        )
-
-    def test_non_empty_rentcafe_fields_stored_as_given(self, db):
-        rows = [_sample_row(
-            url="https://example.com/api-building",
-            rentcafe_property_id="12345",
-            rentcafe_api_token="tok_abc",
-        )]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            sheets_sync(db)
-
-        building = db.query(Building).filter_by(url="https://example.com/api-building").first()
-        assert building.rentcafe_property_id == "12345"
-        assert building.rentcafe_api_token == "tok_abc"
-
-    def test_worksheet_opened_with_configured_tab_name(self, db):
-        """sheets_sync must open the tab from GOOGLE_SHEETS_TAB_NAME, not a hardcoded string."""
-        rows = [_sample_row()]
-        mock_ws = MagicMock()
-        mock_ws.get_all_values.return_value = _rows_to_raw(rows)
-        mock_sh = MagicMock()
-        mock_sh.worksheet.return_value = mock_ws
-        mock_gc = MagicMock()
-        mock_gc.open_by_key.return_value = mock_sh
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            sheets_sync(db)
-
-        mock_sh.worksheet.assert_called_once_with(GOOGLE_SHEETS_TAB_NAME)
+        assert result["added"] == 1
+        assert result["skipped"] == 1
+        assert db.query(Building).filter_by(name="No URL").first() is None
 
     def test_idempotent_sync_shows_zero_added(self, db):
-        """Running sync twice should show added=0 on the second run."""
-        rows = [_sample_row(url="https://example.com/building")]
-        mock_gc = _make_mock_worksheet(rows)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+        raw = _raw(_make_row(url="https://example.com/building"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result1 = sheets_sync(db)
             result2 = sheets_sync(db)
 
@@ -348,20 +288,27 @@ class TestEmptyStringToNone:
         assert result2["updated"] == 1
 
 
-# ---------------------------------------------------------------------------
-# Test 6: Blank header columns are ignored (real sheets often have trailing empties)
-# ---------------------------------------------------------------------------
-
 class TestBlankHeaderColumns:
-    def test_blank_trailing_columns_are_ignored(self, db):
-        """Sheets with extra empty header columns must not raise on duplicate '' headers."""
-        rows = [_sample_row(url="https://example.com/building")]
-        mock_gc = _make_mock_worksheet(rows, extra_blank_cols=3)
-
-        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+    def test_blank_trailing_columns_do_not_break_sync(self, db):
+        headers_with_blanks = SHEET_HEADERS + ["", "", ""]
+        row = _make_row() + ["", "", ""]
+        raw = [headers_with_blanks, row]
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             result = sheets_sync(db)
-
         assert result["added"] == 1
-        building = db.query(Building).filter_by(url="https://example.com/building").first()
-        assert building is not None
-        assert building.name == "Test Building"
+
+
+class TestTabName:
+    def test_worksheet_opened_with_configured_tab_name(self, db):
+        raw = _raw(_make_row())
+        mock_ws = MagicMock()
+        mock_ws.get_all_values.return_value = raw
+        mock_sh = MagicMock()
+        mock_sh.worksheet.return_value = mock_ws
+        mock_gc_obj = MagicMock()
+        mock_gc_obj.open_by_key.return_value = mock_sh
+
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc_obj):
+            sheets_sync(db)
+
+        mock_sh.worksheet.assert_called_once_with(GOOGLE_SHEETS_TAB_NAME)
