@@ -1,10 +1,10 @@
 """
-Google Sheets sync — pulls building list from the 'Buildings' tab and upserts into the DB.
+Google Sheets sync — pulls building list from the configured tab and upserts into the DB.
 
 Entrypoint: moxie.sync.sheets:main (registered as `sheets-sync` in pyproject.toml)
 """
 
-from moxie.config import GOOGLE_SHEETS_ID, GOOGLE_SHEETS_KEY_PATH
+from moxie.config import GOOGLE_SHEETS_ID, GOOGLE_SHEETS_KEY_PATH, GOOGLE_SHEETS_TAB_NAME
 from moxie.db.models import Building
 from moxie.db.session import get_db
 
@@ -31,8 +31,8 @@ def sheets_sync(db: Session) -> dict:
     # 2. Open sheet by ID
     sh = gc.open_by_key(GOOGLE_SHEETS_ID)
 
-    # 3. Get the Buildings tab (case-sensitive)
-    worksheet = sh.worksheet("Buildings")
+    # 3. Get the configured tab (case-sensitive; defaults to "Buildings")
+    worksheet = sh.worksheet(GOOGLE_SHEETS_TAB_NAME)
 
     # 4. Read all rows as list[dict] keyed by header row
     rows = worksheet.get_all_records()
@@ -41,7 +41,7 @@ def sheets_sync(db: Session) -> dict:
     if len(rows) < 1:
         raise ValueError(
             f"Sheets sync returned suspiciously few rows: {len(rows)}. "
-            "Check tab name 'Buildings' and that the sheet is shared with the service account."
+            f"Check tab name '{GOOGLE_SHEETS_TAB_NAME}' and that the sheet is shared with the service account."
         )
 
     # 6. Build set of all Sheet URLs for deletion detection

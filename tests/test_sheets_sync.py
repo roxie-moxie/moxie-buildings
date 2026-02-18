@@ -10,6 +10,7 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from moxie.config import GOOGLE_SHEETS_TAB_NAME
 from moxie.db.models import Base, Building
 from moxie.sync.sheets import sheets_sync
 
@@ -287,6 +288,21 @@ class TestEmptyStringToNone:
         building = db.query(Building).filter_by(url="https://example.com/api-building").first()
         assert building.rentcafe_property_id == "12345"
         assert building.rentcafe_api_token == "tok_abc"
+
+    def test_worksheet_opened_with_configured_tab_name(self, db):
+        """sheets_sync must open the tab from GOOGLE_SHEETS_TAB_NAME, not a hardcoded string."""
+        rows = [_sample_row()]
+        mock_ws = MagicMock()
+        mock_ws.get_all_records.return_value = rows
+        mock_sh = MagicMock()
+        mock_sh.worksheet.return_value = mock_ws
+        mock_gc = MagicMock()
+        mock_gc.open_by_key.return_value = mock_sh
+
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+            sheets_sync(db)
+
+        mock_sh.worksheet.assert_called_once_with(GOOGLE_SHEETS_TAB_NAME)
 
     def test_idempotent_sync_shows_zero_added(self, db):
         """Running sync twice should show added=0 on the second run."""
