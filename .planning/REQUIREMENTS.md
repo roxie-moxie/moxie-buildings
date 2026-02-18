@@ -78,42 +78,40 @@
 
 ## Traceability
 
-*Populated during roadmap creation.*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| SCRAP-01 | — | Pending |
-| SCRAP-02 | — | Pending |
-| SCRAP-03 | — | Pending |
-| SCRAP-04 | — | Pending |
-| SCRAP-05 | — | Pending |
-| SCRAP-06 | — | Pending |
-| SCRAP-07 | — | Pending |
-| SCRAP-08 | — | Pending |
-| SCRAP-09 | — | Pending |
-| AGENT-01 | — | Pending |
-| AGENT-02 | — | Pending |
-| AGENT-03 | — | Pending |
-| AGENT-04 | — | Pending |
-| AGENT-05 | — | Pending |
-| AGENT-06 | — | Pending |
-| AGENT-07 | — | Pending |
-| ADMIN-01 | — | Pending |
-| ADMIN-02 | — | Pending |
-| ADMIN-03 | — | Pending |
-| ADMIN-04 | — | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 3 | Pending |
+| INFRA-03 | Phase 2 | Pending |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Pending |
+| SCRAP-01 | Phase 2 | Pending |
+| SCRAP-02 | Phase 2 | Pending |
+| SCRAP-03 | Phase 2 | Pending |
+| SCRAP-04 | Phase 2 | Pending |
+| SCRAP-05 | Phase 2 | Pending |
+| SCRAP-06 | Phase 2 | Pending |
+| SCRAP-07 | Phase 2 | Pending |
+| SCRAP-08 | Phase 2 | Pending |
+| SCRAP-09 | Phase 2 | Pending |
+| AGENT-01 | Phase 4 | Pending |
+| AGENT-02 | Phase 5 | Pending |
+| AGENT-03 | Phase 5 | Pending |
+| AGENT-04 | Phase 5 | Pending |
+| AGENT-05 | Phase 5 | Pending |
+| AGENT-06 | Phase 5 | Pending |
+| AGENT-07 | Phase 5 | Pending |
+| ADMIN-01 | Phase 4 | Pending |
+| ADMIN-02 | Phase 4 | Pending |
+| ADMIN-03 | Phase 4 | Pending |
+| ADMIN-04 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26 ⚠️
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after initial definition*
+*Last updated: 2026-02-17 after roadmap creation*
