@@ -34,8 +34,21 @@ def sheets_sync(db: Session) -> dict:
     # 3. Get the configured tab (case-sensitive; defaults to "Buildings")
     worksheet = sh.worksheet(GOOGLE_SHEETS_TAB_NAME)
 
-    # 4. Read all rows as list[dict] keyed by header row
-    rows = worksheet.get_all_records()
+    # 4. Read all values and build dicts manually, skipping blank-header columns.
+    # get_all_records() raises on duplicate headers (including multiple empty ones),
+    # which breaks on sheets that have trailing blank columns.
+    raw = worksheet.get_all_values()
+    if raw:
+        headers = raw[0]
+        valid_indices = [i for i, h in enumerate(headers) if h.strip()]
+        valid_headers = [headers[i] for i in valid_indices]
+        rows = [
+            {valid_headers[j]: (row[i] if i < len(row) else "")
+             for j, i in enumerate(valid_indices)}
+            for row in raw[1:]
+        ]
+    else:
+        rows = []
 
     # 5. Guard against silent empty return (wrong tab name or not shared)
     if len(rows) < 1:

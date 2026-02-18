@@ -34,15 +34,8 @@ def db():
 # Helper: build a mock gspread worksheet
 # ---------------------------------------------------------------------------
 
-def _make_mock_worksheet(rows: list[dict]):
-    """Return a mocked gspread worksheet that returns the given rows."""
-    mock_ws = MagicMock()
-    mock_ws.get_all_records.return_value = rows
-    mock_sh = MagicMock()
-    mock_sh.worksheet.return_value = mock_ws
-    mock_gc = MagicMock()
-    mock_gc.open_by_key.return_value = mock_sh
-    return mock_gc
+HEADERS = ["name", "url", "neighborhood", "management_company", "platform",
+           "rentcafe_property_id", "rentcafe_api_token"]
 
 
 def _sample_row(
@@ -63,6 +56,32 @@ def _sample_row(
         "rentcafe_property_id": rentcafe_property_id,
         "rentcafe_api_token": rentcafe_api_token,
     }
+
+
+def _rows_to_raw(rows: list[dict], extra_blank_cols: int = 0) -> list[list]:
+    """Convert list[dict] rows to get_all_values() format (list of lists).
+
+    Optionally appends blank header columns to simulate real sheets with
+    trailing empty columns.
+    """
+    blank_cols = [""] * extra_blank_cols
+    header_row = HEADERS + blank_cols
+    data_rows = [
+        [row.get(h, "") for h in HEADERS] + blank_cols
+        for row in rows
+    ]
+    return [header_row] + data_rows
+
+
+def _make_mock_worksheet(rows: list[dict], extra_blank_cols: int = 0):
+    """Return a mocked gspread worksheet using get_all_values() format."""
+    mock_ws = MagicMock()
+    mock_ws.get_all_values.return_value = _rows_to_raw(rows, extra_blank_cols)
+    mock_sh = MagicMock()
+    mock_sh.worksheet.return_value = mock_ws
+    mock_gc = MagicMock()
+    mock_gc.open_by_key.return_value = mock_sh
+    return mock_gc
 
 
 # ---------------------------------------------------------------------------
@@ -225,17 +244,28 @@ class TestMissingBuildingsDeleted:
 
 class TestEmptyRowsGuard:
     def test_empty_rows_raises_value_error(self, db):
-        mock_gc = _make_mock_worksheet([])
+        mock_ws = MagicMock()
+        mock_ws.get_all_values.return_value = []
+        mock_sh = MagicMock()
+        mock_sh.worksheet.return_value = mock_ws
+        mock_gc = MagicMock()
+        mock_gc.open_by_key.return_value = mock_sh
 
         with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
             with pytest.raises(ValueError, match="suspiciously few rows"):
                 sheets_sync(db)
 
-    def test_empty_rows_error_includes_row_count(self, db):
-        mock_gc = _make_mock_worksheet([])
+    def test_header_only_sheet_raises_value_error(self, db):
+        """A sheet with only a header row and no data rows is treated as empty."""
+        mock_ws = MagicMock()
+        mock_ws.get_all_values.return_value = [HEADERS]  # header but no data
+        mock_sh = MagicMock()
+        mock_sh.worksheet.return_value = mock_ws
+        mock_gc = MagicMock()
+        mock_gc.open_by_key.return_value = mock_sh
 
         with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
-            with pytest.raises(ValueError, match="0"):
+            with pytest.raises(ValueError, match="suspiciously few rows"):
                 sheets_sync(db)
 
 
@@ -293,7 +323,7 @@ class TestEmptyStringToNone:
         """sheets_sync must open the tab from GOOGLE_SHEETS_TAB_NAME, not a hardcoded string."""
         rows = [_sample_row()]
         mock_ws = MagicMock()
-        mock_ws.get_all_records.return_value = rows
+        mock_ws.get_all_values.return_value = _rows_to_raw(rows)
         mock_sh = MagicMock()
         mock_sh.worksheet.return_value = mock_ws
         mock_gc = MagicMock()
@@ -316,3 +346,22 @@ class TestEmptyStringToNone:
         assert result1["added"] == 1
         assert result2["added"] == 0
         assert result2["updated"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Blank header columns are ignored (real sheets often have trailing empties)
+# ---------------------------------------------------------------------------
+
+class TestBlankHeaderColumns:
+    def test_blank_trailing_columns_are_ignored(self, db):
+        """Sheets with extra empty header columns must not raise on duplicate '' headers."""
+        rows = [_sample_row(url="https://example.com/building")]
+        mock_gc = _make_mock_worksheet(rows, extra_blank_cols=3)
+
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=mock_gc):
+            result = sheets_sync(db)
+
+        assert result["added"] == 1
+        building = db.query(Building).filter_by(url="https://example.com/building").first()
+        assert building is not None
+        assert building.name == "Test Building"
