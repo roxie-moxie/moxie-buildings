@@ -1,0 +1,35 @@
+[project]
+name = "moxie-buildings"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Chicago rental market scraper and data aggregator"
+dependencies = [
+    "sqlalchemy==2.0.46",
+    "alembic==1.18.4",
+    "pydantic>=2.0",
+    "gspread==6.2.1",
+    "google-auth>=2.0",
+    "python-dotenv>=1.0",
+    "python-dateutil>=2.0",
+]
+
+[project.scripts]
+sheets-sync = "moxie.sync.sheets:main"
+dev = "scripts.dev_bootstrap:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/moxie"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
