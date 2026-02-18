@@ -5,8 +5,7 @@ Every scraper calls normalize(raw, building_id) before writing to the database.
 This module never touches the database.
 """
 
-import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from dateutil import parser as dateutil_parser
@@ -141,5 +140,5 @@ def normalize(raw: dict, building_id: int) -> dict:
         "floor_plan_url": inp.floor_plan_url,
         "baths": str(inp.baths) if inp.baths is not None else None,
         "sqft": int(inp.sqft) if inp.sqft is not None else None,
-        "scrape_run_at": datetime.utcnow(),
+        "scrape_run_at": datetime.now(timezone.utc),
     }
