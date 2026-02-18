@@ -12,7 +12,7 @@ The MBA is built data-first, in strict dependency order. The schema and normaliz
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Schema, normalization, Sheets sync, and dev environment — the layer every scraper depends on
+- [x] **Phase 1: Foundation** - Schema, normalization, Sheets sync, and dev environment — the layer every scraper depends on
 - [ ] **Phase 2: Scrapers** - All scraper modules across three tiers covering ~400 buildings
 - [ ] **Phase 3: Scheduler** - Daily batch runner with failure handling and stale flagging
 - [ ] **Phase 4: API Layer** - FastAPI auth, filter/search endpoints, and admin endpoints
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Project scaffold, SQLAlchemy models, and Alembic initial migration
 - [x] 01-02-PLAN.md — Normalizer (TDD): UnitInput Pydantic model, normalize() function, full test suite
-- [ ] 01-03-PLAN.md — Google Sheets sync, seed script, and dev bootstrap command
+- [x] 01-03-PLAN.md — Google Sheets sync, seed script, and dev bootstrap command
 
 ### Phase 2: Scrapers
 **Goal**: All ~400 buildings are covered by working scraper modules across three tiers — Tier 1 REST APIs, Tier 2 platform HTML scrapers, and Tier 3 LLM fallback — with each module validated against real data and normalized output confirmed
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 2/3 | In progress | - |
+| 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 0/TBD | Not started | - |
 | 3. Scheduler | 0/TBD | Not started | - |
 | 4. API Layer | 0/TBD | Not started | - |

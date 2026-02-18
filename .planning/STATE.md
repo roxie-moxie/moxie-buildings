@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Agents can instantly find available units matching any client's criteria across the entire downtown Chicago rental market, with data refreshed daily.
-**Current focus:** Phase 1 - Foundation
+**Current focus:** Phase 2 - Scrapers
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-18 — 01-02-PLAN completed
+Phase: 1 of 5 (Foundation) — COMPLETE
+Plan: 3 of 3 in phase — COMPLETE
+Status: Phase 1 complete — ready to begin Phase 2
+Last activity: 2026-02-18 — 01-03-PLAN completed (all 8 human-verify checks passed)
 
-Progress: [██░░░░░░░░] 13%
+Progress: [████░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 14 min
-- Total execution time: 0.5 hours
+- Total plans completed: 3
+- Average duration: 21 min
+- Total execution time: ~1 hour
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation | 2/3 | 28 min | 14 min |
+| 01-foundation | 3/3 | ~73 min | ~24 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (22 min)
-- Trend: TDD plans take longer; baseline for feature plans is ~6 min
+- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min with human-verify iteration)
+- Trend: Plans requiring real service verification take longer due to schema discovery
 
 *Updated after each plan completion*
 
@@ -43,7 +43,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - [Pre-Phase 1]: Tiered scraping strategy (API → platform scraper → LLM fallback) — pending final rationale confirmation
-- [Pre-Phase 1]: Google Sheets as ongoing building list source of truth — pending
+- [Pre-Phase 1]: Google Sheets as ongoing building list source of truth — confirmed by plan 03
 - [Pre-Phase 1]: LLM fallback (Crawl4AI + Claude Haiku) for custom sites — pending
 - [Pre-Phase 1]: Daily scrape cadence at 2 AM — pending
 - [01-01]: platform field on buildings is plain String (no DB-level enum) — SQLite lacks native ENUM, enforced at app layer
@@ -54,19 +54,25 @@ Recent decisions affecting current work:
 - [01-02]: 4BR+ maps to 3BR+ per spec — 4br is in BED_TYPE_ALIASES
 - [01-02]: scrape_run_at uses datetime.now(timezone.utc) — datetime.utcnow() deprecated in Python 3.12+
 - [01-02]: dateutil.parser.parse() for all non-"available now" dates — format-agnostic, no strptime format strings needed
+- [01-03]: get_all_values() over get_all_records() — real Moxie sheet has blank header columns that crash get_all_records()
+- [01-03]: GOOGLE_SHEETS_TAB_NAME env var with 'Buildings' default — tab name configurable without code change
+- [01-03]: Sheet columns in real data: Building Name, Website, Neighborhood, Managment (typo) — no platform/rentcafe columns in sheet
+- [01-03]: Rows without Website URL skipped (not errored) and counted as 'skipped' in sync result
+- [01-03]: _parse_rows() extracted as pure function for independent testability of column mapping logic
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- [Phase 1]: Yardi/RentCafe API access is unconfirmed — requires vendor program enrollment before any Yardi scraper code is written. This is a procurement action, not a code task. Must be resolved before Phase 2.
+- [Phase 2]: Yardi/RentCafe API access is unconfirmed — requires vendor program enrollment before any Yardi scraper code is written. This is a procurement action, not a code task. Must be resolved before Phase 2 Tier 1 scraper.
 - [Phase 2]: Entrata deprecated its legacy API gateway April 2025. Correct base URL and auth method for the modernized gateway must be verified before the Entrata scraper is built.
 - [Phase 2]: LLM token cost must be benchmarked against 5 representative sites before full-volume enablement — $120/month estimate assumes preprocessing reduces pages to <4,000 tokens.
+- [Phase 1 data gap]: platform, rentcafe_property_id, rentcafe_api_token fields not in Google Sheet — must be set manually or via future sheet column before Phase 2 scrapers can use them.
 
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: 01-03-PLAN.md — paused at checkpoint:human-verify (Task 3) after completing Tasks 1 & 2
+Stopped at: Phase 1 complete — all 3 plans done. Begin Phase 2 planning.
 Resume file: None
