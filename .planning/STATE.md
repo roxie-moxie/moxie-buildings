@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 1 of 5 (Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-18 — 01-01-PLAN completed
+Last activity: 2026-02-18 — 01-02-PLAN completed
 
-Progress: [█░░░░░░░░░] 7%
+Progress: [██░░░░░░░░] 13%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 6 min
-- Total execution time: 0.1 hours
+- Total plans completed: 2
+- Average duration: 14 min
+- Total execution time: 0.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation | 1/3 | 6 min | 6 min |
+| 01-foundation | 2/3 | 28 min | 14 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min)
-- Trend: baseline established
+- Last 5 plans: 01-01 (6 min), 01-02 (22 min)
+- Trend: TDD plans take longer; baseline for feature plans is ~6 min
 
 *Updated after each plan completion*
 
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - [01-01]: Single models.py for all three tables — at 3 tables, per-file complexity outweighs benefits
 - [01-01]: non_canonical as boolean column on units (not separate table) — valid data for Phase 2 debugging, Phase 4 API filters WHERE non_canonical=false
 - [01-01]: Four indexes on units (bed_type, rent_cents, availability_date, building_id) — matching Phase 4 API filter columns
+- [01-02]: Unknown bed type aliases stored as-is with original casing preserved (non_canonical=True) — not lowercased, not rejected
+- [01-02]: 4BR+ maps to 3BR+ per spec — 4br is in BED_TYPE_ALIASES
+- [01-02]: scrape_run_at uses datetime.now(timezone.utc) — datetime.utcnow() deprecated in Python 3.12+
+- [01-02]: dateutil.parser.parse() for all non-"available now" dates — format-agnostic, no strptime format strings needed
 
 ### Pending Todos
 
@@ -64,5 +68,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 01-01-PLAN.md (project scaffold, models, migration)
+Stopped at: Completed 01-02-PLAN.md (unit normalizer — TDD: 45 tests, RED/GREEN/REFACTOR)
 Resume file: None

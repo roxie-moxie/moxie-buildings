@@ -33,8 +33,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffold, SQLAlchemy models, and Alembic initial migration
-- [ ] 01-02-PLAN.md — Normalizer (TDD): UnitInput Pydantic model, normalize() function, full test suite
+- [x] 01-01-PLAN.md — Project scaffold, SQLAlchemy models, and Alembic initial migration
+- [x] 01-02-PLAN.md — Normalizer (TDD): UnitInput Pydantic model, normalize() function, full test suite
 - [ ] 01-03-PLAN.md — Google Sheets sync, seed script, and dev bootstrap command
 
 ### Phase 2: Scrapers
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 2/3 | In progress | - |
 | 2. Scrapers | 0/TBD | Not started | - |
 | 3. Scheduler | 0/TBD | Not started | - |
 | 4. API Layer | 0/TBD | Not started | - |
