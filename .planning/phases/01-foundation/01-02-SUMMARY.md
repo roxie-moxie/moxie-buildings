@@ -155,6 +155,20 @@ None — no external service configuration required.
 - BED_TYPE_ALIASES should be extended as new scrapers return new alias formats in Phase 2.
 - Plan 03 (Google Sheets sync) can proceed — it uses `normalize()` only for the initial dev bootstrap seed, not for building syncs.
 
+## Self-Check: PASSED
+
+| Item | Status |
+|------|--------|
+| `src/moxie/normalizer.py` | FOUND |
+| `tests/test_normalizer.py` | FOUND |
+| `tests/__init__.py` | FOUND |
+| commit `7fc415c` (test RED) | FOUND |
+| commit `4514ada` (feat GREEN) | FOUND |
+| commit `c421607` (refactor) | FOUND |
+| commit `cb265f0` (docs) | FOUND |
+| 45 tests pass | VERIFIED |
+| Working tree clean | VERIFIED |
+
 ---
 *Phase: 01-foundation*
 *Completed: 2026-02-18*
