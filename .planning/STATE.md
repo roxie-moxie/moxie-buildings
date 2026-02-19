@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
 Status: All 9 scraper plans built and passing tests. Post-verification gap work underway.
-Last activity: 2026-02-19 - Completed quick task 3: Validated Next (SightMap/Greystar) — 22 units scraped and pushed to sheet
+Last activity: 2026-02-19 - Quick task 3: Fixed SightMap placeholder filter, validated Next (21 units) + The Ardus (4 units, reclassified funnel→sightmap). Discovered Funnel/SightMap hybrid pattern.
 
 Progress: [████████░░] 60%
 
@@ -103,7 +103,7 @@ Progress: [████████░░] 60%
 |---|-------------|------|--------|--------|-----------|
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
 | 2 | Validate non-PPM buildings: Funnel unit table, Groupfox two-step scraper, SightMap API scraper (10 buildings) | 2026-02-19 | pending | Completed | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
-| 3 | Validate Next (SightMap / Greystar) — 22 units scraped and pushed to sheet | 2026-02-19 | a87c25e | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
+| 3 | Validate Next + The Ardus: SightMap placeholder fix, Funnel/SightMap hybrid discovery | 2026-02-19 | 1d91385 | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
 
 ## Session Continuity
 
