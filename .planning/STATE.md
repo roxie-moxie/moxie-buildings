@@ -10,31 +10,32 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS
-Plan: 3 of 9 in phase — COMPLETE (02-03 done, next: 02-04)
-Status: Phase 2 in progress — sheets_sync() platform detection integrated
-Last activity: 2026-02-18 — 02-03-PLAN completed (platform detection in sheets_sync())
+Plan: 7 of 9 in phase — COMPLETE (02-07 done, next: 02-08)
+Status: Phase 2 in progress — RealPage + Groupfox Crawl4AI scrapers complete
+Last activity: 2026-02-18 — 02-07-PLAN completed (RealPage/G5 and Groupfox tier2 scrapers)
 
-Progress: [████░░░░░░] 24%
+Progress: [█████░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: ~19 min
-- Total execution time: ~77 min
+- Total plans completed: 8
+- Average duration: ~16 min
+- Total execution time: ~127 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
-| 02-scrapers | 3/9 | ~24 min | ~8 min |
+| 02-scrapers | 5/9 | ~54 min | ~11 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min), 02-01 (4 min), 02-02 (8 min)
-- Trend: Pure code plans with no human-verify complete quickly; service verification adds time
+- Last 5 plans: 02-03 (~8 min), 02-04 (~10 min), 02-05 (~10 min), 02-07 (~15 min)
+- Trend: Pure code scraper plans complete quickly (8-15 min); no human-verify checkpoints in Phase 2
 
 *Updated after each plan completion*
+| Phase 02-scrapers P05 | 12 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,11 @@ Recent decisions affecting current work:
 - [02-03]: db.flush() required before detection query in sheets_sync() — autoflush=False sessions don't flush newly-added objects before filter() queries
 - [02-03]: Detection pass queries all null-platform buildings (not just newly upserted) — catches buildings from prior sync passes that were missed
 - [02-03]: detect_platform() returns None; sheets_sync() assigns 'llm' — fills blanks only, existing non-null platform values never overwritten
+- [02-07]: Both Crawl4AI scrapers monkeypatch _fetch_rendered_html coroutine directly — cleaner than mocking asyncio.run, avoids event loop complications
+- [02-07]: Groupfox URL normalization reconstructs scheme://netloc/floorplans from parsed components — handles root/trailing-slash/other-path cases
+- [02-07]: Groupfox _parse_html uses floorplan name as unit_number — /floorplans page lists floorplan types, not individual units
+- [02-07]: Both scrapers have SELECTOR VERIFICATION REQUIRED comments — CSS selectors are research-informed approximations, must be confirmed against live URLs
+- [Phase 02-scrapers]: Heuristic CSS selectors with SELECTOR VERIFICATION REQUIRED comment — real page inspection needed before trusting scraper output for Funnel and AppFolio
 
 ### Pending Todos
 
@@ -85,5 +91,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-03-PLAN.md (platform detection in sheets_sync). Next: 02-04-PLAN.md
+Stopped at: Completed 02-07-PLAN.md (RealPage + Groupfox Crawl4AI scrapers). Next: 02-08-PLAN.md
 Resume file: None

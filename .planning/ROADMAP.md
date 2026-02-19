@@ -51,12 +51,12 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Schema migration (consecutive_zero_count), scraper deps, scrapers/base.py + platform_detect.py
-- [ ] 02-02-PLAN.md — TDD: detect_platform() and save_scrape_result() behavioral tests
-- [ ] 02-03-PLAN.md — Extend sheets_sync() with platform detection integration
-- [ ] 02-04-PLAN.md — Tier 1: RentCafe/Yardi scraper (stub) + PPM single-page scraper
-- [ ] 02-05-PLAN.md — Tier 2: Funnel/Nestio + AppFolio HTML scrapers
+- [x] 02-02-PLAN.md — TDD: detect_platform() and save_scrape_result() behavioral tests
+- [x] 02-03-PLAN.md — Extend sheets_sync() with platform detection integration
+- [x] 02-04-PLAN.md — Tier 1: RentCafe/Yardi scraper (stub) + PPM single-page scraper
+- [x] 02-05-PLAN.md — Tier 2: Funnel/Nestio + AppFolio HTML scrapers
 - [ ] 02-06-PLAN.md — Tier 2: Bozzuto HTML scraper with Crawl4AI upgrade path
-- [ ] 02-07-PLAN.md — Tier 2: RealPage/G5 + Groupfox Crawl4AI scrapers
+- [x] 02-07-PLAN.md — Tier 2: RealPage/G5 + Groupfox Crawl4AI scrapers
 - [ ] 02-08-PLAN.md — Tier 3: LLM fallback scraper (Crawl4AI + Claude Haiku)
 - [ ] 02-09-PLAN.md — LLM benchmark: 5 real sites, cost projection, human-verify checkpoint
 
@@ -111,7 +111,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
-| 2. Scrapers | 3/9 | In Progress|  |
+| 2. Scrapers | 5/9 | In Progress|  |
 | 3. Scheduler | 0/TBD | Not started | - |
 | 4. API Layer | 0/TBD | Not started | - |
 | 5. Frontend | 0/TBD | Not started | - |
