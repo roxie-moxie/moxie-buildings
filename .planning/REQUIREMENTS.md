@@ -19,21 +19,21 @@
 
 ### Scraping — Tier 1 (REST APIs)
 
-- [ ] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
-- [ ] **SCRAP-02**: Entrata buildings (~30-40 buildings) scraped via Entrata's modernized API gateway (legacy gateway deprecated April 2025)
-- [ ] **SCRAP-03**: PPM buildings (~18 buildings) scraped via the single centralized availability page at ppmapartments.com/availability — one scraper covers all PPM buildings
+- [x] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
+- [x] **SCRAP-02**: Entrata buildings (~30-40 buildings) scraped via Entrata's modernized API gateway (legacy gateway deprecated April 2025)
+- [x] **SCRAP-03**: PPM buildings (~18 buildings) scraped via the single centralized availability page at ppmapartments.com/availability — one scraper covers all PPM buildings
 
 ### Scraping — Tier 2 (Platform HTML)
 
-- [ ] **SCRAP-04**: Funnel/Nestio buildings (~15-20 buildings) scraped via platform-specific HTML scraper
-- [ ] **SCRAP-05**: RealPage/G5 buildings (~10-15 buildings) scraped via platform-specific HTML scraper
-- [ ] **SCRAP-06**: Bozzuto buildings (~13 buildings) scraped via platform-specific HTML scraper
-- [ ] **SCRAP-07**: Groupfox buildings (~12 buildings) scraped via /floorplans HTML pages
-- [ ] **SCRAP-08**: AppFolio buildings (~5-10 buildings) scraped via platform-specific HTML scraper
+- [x] **SCRAP-04**: Funnel/Nestio buildings (~15-20 buildings) scraped via platform-specific HTML scraper
+- [x] **SCRAP-05**: RealPage/G5 buildings (~10-15 buildings) scraped via platform-specific HTML scraper
+- [x] **SCRAP-06**: Bozzuto buildings (~13 buildings) scraped via platform-specific HTML scraper
+- [x] **SCRAP-07**: Groupfox buildings (~12 buildings) scraped via /floorplans HTML pages
+- [x] **SCRAP-08**: AppFolio buildings (~5-10 buildings) scraped via platform-specific HTML scraper
 
 ### Scraping — Tier 3 (LLM Fallback)
 
-- [ ] **SCRAP-09**: Long-tail custom sites (WordPress, Squarespace, ~50-70 buildings) scraped via Crawl4AI + Claude Haiku with HTML-to-markdown preprocessing to control token cost
+- [x] **SCRAP-09**: Long-tail custom sites (WordPress, Squarespace, ~50-70 buildings) scraped via Crawl4AI + Claude Haiku with HTML-to-markdown preprocessing to control token cost
 
 ### Agent Interface
 
@@ -86,15 +86,15 @@
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
-| SCRAP-01 | Phase 2 | Pending |
-| SCRAP-02 | Phase 2 | Pending |
-| SCRAP-03 | Phase 2 | Pending |
-| SCRAP-04 | Phase 2 | Pending |
-| SCRAP-05 | Phase 2 | Pending |
-| SCRAP-06 | Phase 2 | Pending |
-| SCRAP-07 | Phase 2 | Pending |
-| SCRAP-08 | Phase 2 | Pending |
-| SCRAP-09 | Phase 2 | Pending |
+| SCRAP-01 | Phase 2 | Complete |
+| SCRAP-02 | Phase 2 | Complete |
+| SCRAP-03 | Phase 2 | Complete |
+| SCRAP-04 | Phase 2 | Complete |
+| SCRAP-05 | Phase 2 | Complete |
+| SCRAP-06 | Phase 2 | Complete |
+| SCRAP-07 | Phase 2 | Complete |
+| SCRAP-08 | Phase 2 | Complete |
+| SCRAP-09 | Phase 2 | Complete |
 | AGENT-01 | Phase 4 | Pending |
 | AGENT-02 | Phase 5 | Pending |
 | AGENT-03 | Phase 5 | Pending |

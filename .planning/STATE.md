@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS
-Plan: 2 of 9 in phase — COMPLETE (02-02 done, next: 02-03)
-Status: Phase 2 in progress — scraper infrastructure + behavioral tests complete
-Last activity: 2026-02-18 — 02-02-PLAN completed (behavioral tests for detect_platform() and save_scrape_result())
+Plan: 3 of 9 in phase — COMPLETE (02-03 done, next: 02-04)
+Status: Phase 2 in progress — sheets_sync() platform detection integrated
+Last activity: 2026-02-18 — 02-03-PLAN completed (platform detection in sheets_sync())
 
-Progress: [████░░░░░░] 22%
+Progress: [████░░░░░░] 24%
 
 ## Performance Metrics
 
@@ -28,7 +28,7 @@ Progress: [████░░░░░░] 22%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
-| 02-scrapers | 2/9 | ~12 min | ~6 min |
+| 02-scrapers | 3/9 | ~24 min | ~8 min |
 
 **Recent Trend:**
 - Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min), 02-01 (4 min), 02-02 (8 min)
@@ -67,6 +67,9 @@ Recent decisions affecting current work:
 - [02-02]: In-memory SQLite per test (not shared session) — each test gets a fresh DB, no state leakage between tests
 - [02-02]: Class-based test grouping by behavior path mirrors 4-path behavioral spec
 - [02-02]: CONSECUTIVE_ZERO_THRESHOLD imported from source in tests — any future constant change fails test_threshold_constant_is_five immediately
+- [02-03]: db.flush() required before detection query in sheets_sync() — autoflush=False sessions don't flush newly-added objects before filter() queries
+- [02-03]: Detection pass queries all null-platform buildings (not just newly upserted) — catches buildings from prior sync passes that were missed
+- [02-03]: detect_platform() returns None; sheets_sync() assigns 'llm' — fills blanks only, existing non-null platform values never overwritten
 
 ### Pending Todos
 
@@ -82,5 +85,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-02-PLAN.md (behavioral tests). Next: 02-03-PLAN.md
+Stopped at: Completed 02-03-PLAN.md (platform detection in sheets_sync). Next: 02-04-PLAN.md
 Resume file: None
