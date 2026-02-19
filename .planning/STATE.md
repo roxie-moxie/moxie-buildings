@@ -5,37 +5,38 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Agents can instantly find available units matching any client's criteria across the entire downtown Chicago rental market, with data refreshed daily.
-**Current focus:** Phase 2 - Scrapers
+**Current focus:** Phase 3 - Orchestrator (Phase 2 complete)
 
 ## Current Position
 
-Phase: 2 of 5 (Scrapers) — IN PROGRESS
-Plan: 8 of 9 in phase — COMPLETE (02-08 done, next: 02-09)
-Status: Phase 2 in progress — Tier 3 LLM fallback scraper (Crawl4AI + Claude Haiku) complete
-Last activity: 2026-02-18 — 02-08-PLAN completed (LLM fallback scraper for custom sites + Entrata)
+Phase: 2 of 5 (Scrapers) — COMPLETE
+Plan: 9 of 9 in phase — COMPLETE (all Phase 2 plans done)
+Status: Phase 2 complete — all scrapers built, LLM benchmark passed ($8.51/month), ready for Phase 3
+Last activity: 2026-02-18 — 02-09-PLAN completed (LLM benchmark: $8.51/month, PASS)
 
-Progress: [██████░░░░] 44%
+Progress: [████████░░] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: ~16 min
-- Total execution time: ~145 min
+- Total plans completed: 12 (3 foundation + 9 scrapers)
+- Average duration: ~14 min
+- Total execution time: ~165 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
-| 02-scrapers | 6/9 | ~72 min | ~12 min |
+| 02-scrapers | 9/9 | ~92 min | ~10 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (~8 min), 02-04 (~10 min), 02-05 (~10 min), 02-07 (~15 min), 02-08 (~18 min)
-- Trend: Pure code scraper plans complete quickly (8-15 min); no human-verify checkpoints in Phase 2
+- Last 5 plans: 02-05 (~10 min), 02-06 (~12 min), 02-07 (~15 min), 02-08 (~18 min), 02-09 (~20 min)
+- Trend: 02-09 included human-verify checkpoint (LLM benchmark run by user) — longer than pure code plans
 
 *Updated after each plan completion*
 | Phase 02-scrapers P05 | 12 | 2 tasks | 4 files |
+| Phase 02-scrapers P09 | 20 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Recent decisions affecting current work:
 - [02-08]: AsyncWebCrawler tests require context manager mocking (__aenter__/__aexit__/arun) — patching arun alone fails because __aenter__ launches Playwright browsers before arun is reached
 - [02-08]: LLM scraper filtering (unit_number/bed_type/rent required) in _scrape_with_llm, not in scrape() -- tests call _scrape_with_llm directly with mocked crawler for filtering coverage
 - [02-08]: ANTHROPIC_API_KEY checked at call time in _scrape_with_llm -- import never fails; only scrape() raises EnvironmentError when key absent
+- [Phase 02-scrapers]: LLM tier cost benchmarked at $8.51/month — PASS, full-volume enablement approved
+- [Phase 02-scrapers]: Token counts for LLM benchmark estimated from output JSON length — not instrumented against Anthropic API, sufficient for gate decision
 
 ### Pending Todos
 
@@ -97,11 +100,11 @@ None.
 
 - [Phase 2]: Yardi/RentCafe API access is unconfirmed — requires vendor program enrollment before any Yardi scraper code is written. This is a procurement action, not a code task. Must be resolved before Phase 2 Tier 1 scraper.
 - [Phase 2]: Entrata deprecated its legacy API gateway April 2025. Correct base URL and auth method for the modernized gateway must be verified before the Entrata scraper is built.
-- [Phase 2]: LLM token cost must be benchmarked against 5 representative sites before full-volume enablement — $120/month estimate assumes preprocessing reduces pages to <4,000 tokens.
+- [Phase 2 — RESOLVED]: LLM token cost benchmarked: $8.51/month (PASS — 93% below $120 target). Full-volume enablement approved.
 - [Phase 1 data gap]: platform, rentcafe_property_id, rentcafe_api_token fields not in Google Sheet — must be set manually or via future sheet column before Phase 2 scrapers can use them.
 
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-06-PLAN.md (Bozzuto HTML scraper). 02-09 is the remaining plan in Phase 2.
+Stopped at: Completed 02-09-PLAN.md — Phase 2 scrapers complete (all 9/9 plans done). Ready for Phase 3 orchestrator.
 Resume file: None
