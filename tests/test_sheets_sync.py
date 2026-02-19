@@ -308,3 +308,92 @@ class TestTabName:
             sheets_sync(db)
 
         mock_sh.worksheet.assert_called_once_with(GOOGLE_SHEETS_TAB_NAME)
+
+
+# ---------------------------------------------------------------------------
+# Test platform detection integration in sheets_sync
+# ---------------------------------------------------------------------------
+
+class TestPlatformDetection:
+    """Platform detection runs after every upsert pass and fills blanks only."""
+
+    def test_rentcafe_url_gets_platform_rentcafe(self, db):
+        """A building with a rentcafe.com URL should get platform='rentcafe' after sync."""
+        raw = _raw(_make_row(url="https://somebuilding.rentcafe.com/listing/chicago"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            sheets_sync(db)
+
+        building = db.query(Building).filter_by(
+            url="https://somebuilding.rentcafe.com/listing/chicago"
+        ).first()
+        assert building is not None
+        assert building.platform == "rentcafe"
+
+    def test_unrecognized_url_gets_platform_llm(self, db):
+        """A building with a custom (unrecognized) URL should get platform='llm'."""
+        raw = _raw(_make_row(url="https://mymysteriousapartments.com/apply"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            sheets_sync(db)
+
+        building = db.query(Building).filter_by(
+            url="https://mymysteriousapartments.com/apply"
+        ).first()
+        assert building is not None
+        assert building.platform == "llm"
+
+    def test_existing_platform_not_overwritten(self, db):
+        """A building with an already-set platform must not be overwritten by detection."""
+        # Pre-insert a building with platform='ppm' and a rentcafe URL.
+        # Detection would normally set 'rentcafe', but it must leave 'ppm' intact.
+        db.add(Building(
+            name="Pre-existing",
+            url="https://somebuilding.rentcafe.com/listing/chicago",
+            platform="ppm",
+            last_scrape_status="never",
+        ))
+        db.commit()
+
+        raw = _raw(_make_row(url="https://somebuilding.rentcafe.com/listing/chicago"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            sheets_sync(db)
+
+        db.expire_all()
+        building = db.query(Building).filter_by(
+            url="https://somebuilding.rentcafe.com/listing/chicago"
+        ).first()
+        assert building.platform == "ppm"  # unchanged — not 'rentcafe' or 'llm'
+
+    def test_newly_synced_building_gets_platform_immediately(self, db):
+        """A brand-new building added by sync should have platform set in the same pass."""
+        raw = _raw(_make_row(url="https://bozzuto.com/apartments/chicago"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            result = sheets_sync(db)
+
+        assert result["added"] == 1
+        building = db.query(Building).filter_by(
+            url="https://bozzuto.com/apartments/chicago"
+        ).first()
+        assert building is not None
+        assert building.platform == "bozzuto"
+
+    def test_platform_set_on_pre_existing_unclassified_building(self, db):
+        """Buildings in the DB from a previous sync that have platform=None get classified."""
+        # Simulate a building from a previous sync pass that never got classified
+        db.add(Building(
+            name="Old Unclassified",
+            url="https://example.ppmapartments.com/chicago",
+            platform=None,
+            last_scrape_status="ok",
+        ))
+        db.commit()
+
+        # Sync includes this building (same URL) — it should get classified now
+        raw = _raw(_make_row(url="https://example.ppmapartments.com/chicago"))
+        with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
+            sheets_sync(db)
+
+        db.expire_all()
+        building = db.query(Building).filter_by(
+            url="https://example.ppmapartments.com/chicago"
+        ).first()
+        assert building.platform == "ppm"

@@ -8,12 +8,18 @@ Real sheet schema (Moxie Buildings 2.0 Beta — "Buildings" tab, 541 rows):
   Managment      → management_company  (note: typo in source sheet)
   All other columns (Building ID, Address, Phone, Email, etc.) are ignored.
 
+After every upsert pass, any building whose platform column is still null gets
+classified by detect_platform(). Recognized patterns (rentcafe.com, etc.) get the
+matching platform string; everything else gets 'llm'. Buildings that already have a
+platform value are never overwritten — detection fills blanks only.
+
 Entrypoint: moxie.sync.sheets:main (registered as `sheets-sync` in pyproject.toml)
 """
 
 from moxie.config import GOOGLE_SHEETS_ID, GOOGLE_SHEETS_KEY_PATH, GOOGLE_SHEETS_TAB_NAME
 from moxie.db.models import Building
 from moxie.db.session import get_db
+from moxie.scrapers.platform_detect import detect_platform
 
 import gspread
 from sqlalchemy.orm import Session
@@ -67,6 +73,11 @@ def sheets_sync(db: Session) -> dict:
     Pull all rows from the configured tab and upsert them into the buildings table.
     Deletes any DB buildings whose URL no longer appears in the sheet.
     Skips rows that have no Website URL (can't upsert without a unique key).
+
+    After upserting, runs platform detection on all buildings whose platform is
+    still null. Recognized URL patterns set the matching platform string
+    (e.g. 'rentcafe', 'ppm'); unrecognized URLs get 'llm'. Buildings that already
+    have a platform value set are never overwritten (fills blanks only).
 
     Returns:
         dict with keys 'added', 'updated', 'deleted', 'skipped'.
@@ -122,6 +133,17 @@ def sheets_sync(db: Session) -> dict:
                 last_scrape_status="never",
             ))
             added += 1
+
+    # 7b. Platform detection: classify any building that still has no platform value.
+    #     Flush first so that newly-added buildings from step 7 are visible in the
+    #     query below (matters when the session has autoflush=False).
+    #     Runs on ALL buildings in the DB (not just ones just upserted) so that
+    #     buildings from a previous sync pass also get classified.
+    #     "Fills blanks only" — existing non-null platform values are never changed.
+    db.flush()
+    for building in db.query(Building).filter(Building.platform.is_(None)).all():
+        detected = detect_platform(building.url or "")
+        building.platform = detected if detected is not None else "llm"
 
     # 8. Delete DB buildings whose URL is no longer in the sheet
     for building in db.query(Building).all():
