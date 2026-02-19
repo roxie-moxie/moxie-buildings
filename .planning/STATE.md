@@ -102,9 +102,16 @@ Progress: [████████░░] 60%
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
+| 2 | Pick a non-PPM building from DB and scrape end-to-end to Google Sheet Availability tab | 2026-02-19 | a56c2cf | Awaiting Validation | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
+
+## Key Decisions (this session)
+
+- [2026-02-19]: Funnel scraper selectors verified against real Greystar/Funnel site — use div[data-beds] with data-price=-1 as unavailability filter; floor plan name used as unit_number
+- [2026-02-19]: Normalizer extended for Funnel rent format ("Starting at $X") and date format ("Available MM/DD/YYYY")
+- [2026-02-19]: Skip needs_classification buildings when ANTHROPIC_API_KEY is placeholder — use Tier 2 scraper buildings instead
 
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: validate-building CLI working. First building (100 W Chestnut, PPM) scraped end-to-end: 23 units in DB and Availability sheet tab. RentCafe API token issue discovered (marketing API token != availability API token, 406 error). PPM scraper fixed (new card layout + name matching). Awaiting user validation of sheet data.
+Stopped at: Quick task 2 in progress — Imprint (Funnel) scraped, 12 floor plans in Availability sheet tab (a56c2cf). Awaiting user validation at checkpoint:human-verify.
 Resume file: .planning/phases/02-scrapers/.continue-here.md
