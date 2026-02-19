@@ -56,6 +56,7 @@ BED_TYPE_ALIASES: dict[str, str] = {
     "2": "2BR",
     "2br": "2BR",
     "2 bed": "2BR",
+    "2 beds": "2BR",
     "two bedroom": "2BR",
     "2 bedroom/1 bath": "2BR",
     "2 bedroom/1bath": "2BR",
@@ -65,11 +66,19 @@ BED_TYPE_ALIASES: dict[str, str] = {
     "3": "3BR+",
     "3br": "3BR+",
     "3 bed": "3BR+",
+    "3 beds": "3BR+",
     "3+": "3BR+",
     "4br": "3BR+",
+    "4 beds": "3BR+",
+    "4 bed": "3BR+",
     "3 bedroom/3 bath": "3BR+",
     "3 bedroom/2 bath": "3BR+",
     "3 bedroom/3bath": "3BR+",
+    # Non-standard types that have a clear canonical equivalent
+    "loft studio": "Studio",          # open loft-style studio
+    "convertible deluxe": "Convertible",  # larger convertible variant
+    # Note: "Duplex", "Penthouse", "Loft" etc. are intentionally NOT mapped here —
+    # they are preserved as-is and flagged non_canonical=True in the output.
 }
 
 
@@ -98,8 +107,12 @@ class UnitInput(BaseModel):
     @field_validator("rent", mode="before")
     @classmethod
     def normalize_rent(cls, v: Any) -> int:
-        """Return rent as integer cents. Strips $, commas, /mo, and decimal suffixes."""
+        """Return rent as integer cents. Strips $, commas, /mo, 'Starting at', and decimal suffixes."""
         s = str(v).strip()
+        # Strip "Starting at" prefix (Funnel-style floor plan pricing)
+        s_lower = s.lower()
+        if s_lower.startswith("starting at"):
+            s = s[len("starting at"):].strip()
         s = s.replace("$", "").replace(",", "").replace("/mo", "").strip()
         # Convert to float first to handle ".00" and fractional cents, then to cents
         try:
@@ -111,11 +124,24 @@ class UnitInput(BaseModel):
     @field_validator("availability_date", mode="before")
     @classmethod
     def normalize_date(cls, v: Any) -> str:
-        """Return YYYY-MM-DD string. Handles 'Available Now' → today's date."""
+        """Return YYYY-MM-DD string. Handles 'Available Now' → today's date.
+
+        Also strips 'Available ' prefix (e.g., 'Available 03/25/2026' → '03/25/2026')
+        before parsing with dateutil.
+        """
         s = str(v).strip().lower()
         if s in ("available now", "now", "immediate", "immediately", ""):
             return datetime.today().strftime("%Y-%m-%d")
-        parsed = dateutil_parser.parse(str(v))
+        # Strip "available" prefix (e.g., "Available 03/25/2026" -> "03/25/2026")
+        original = str(v).strip()
+        if s.startswith("available "):
+            date_part = original[len("available "):].strip()
+        else:
+            date_part = original
+        try:
+            parsed = dateutil_parser.parse(date_part)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Unknown string format: {v}") from exc
         return parsed.strftime("%Y-%m-%d")
 
 

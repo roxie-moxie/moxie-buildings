@@ -1,20 +1,33 @@
 """
 Funnel/Nestio scraper — Tier 2 HTML.
 
-Funnel's REST API (nestiolistings.com/api/v2/) requires per-property API keys
-which are not publicly available. This scraper fetches the public listing page HTML
-directly and parses unit data with BeautifulSoup.
+Funnel-powered apartment sites (used by Greystar and similar management companies)
+expose a /floorplans/ page with div.floor-plan elements, each having data attributes:
+  - data-beds (e.g., "1", "Studio", "Convertible")
+  - data-baths (e.g., "1.00")
+  - data-price (integer cents or dollars — raw price)
+  - data-first-available-date (ISO date, e.g., "2026-02-13")
 
-SELECTOR NOTE: CSS selectors in _parse_html() were written based on common Funnel
-listing page patterns. They MUST be verified against a real Funnel building URL
-before relying on the output. Run the scraper against a known nestiolistings.com
-or funnelleasing.com URL and inspect the output.
+Each div also contains:
+  - h3.name — floor plan name (used as unit_number since individual units aren't listed)
+  - p.bedrooms — beds text (e.g., "1 Bed")
+  - p.bathrooms — baths text (e.g., "1 Bath")
+  - p.square-feet — sqft text (e.g., "771 sf")
+  - p.starting-price — formatted rent (e.g., "Starting at $2,565")
+  - p.available-units — unit count (e.g., "3 Apartments Available")
+  - p.first-available-date — availability text (e.g., "Available Now")
+
+The scraper normalizes the building URL to /floorplans/ and fetches that page.
+Placeholder divs (those without data-beds) are skipped.
 
 Platform: 'funnel'
-Coverage: ~15-20 buildings
+Coverage: ~15-20 buildings (Greystar and other Funnel-platform operators)
 """
+from urllib.parse import urljoin, urlparse
+
 import httpx
 from bs4 import BeautifulSoup
+
 from moxie.db.models import Building
 
 _HEADERS = {
@@ -31,58 +44,94 @@ class FunnelScraperError(RuntimeError):
     """Raised on HTTP error or failed parse that signals scrape failure."""
 
 
+def _normalize_floorplans_url(building_url: str) -> str:
+    """
+    Normalize the building URL to point to the /floorplans/ subpage.
+
+    If the URL already contains '/floorplan', returns it as-is.
+    Otherwise, appends /floorplans/ to the base origin.
+    """
+    parsed = urlparse(building_url.rstrip("/"))
+    if "/floorplan" in parsed.path.lower():
+        return building_url
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    return urljoin(base + "/", "floorplans/")
+
+
 def _fetch_html(url: str) -> str:
     """Fetch the listing page HTML. Raises FunnelScraperError on non-2xx."""
     with httpx.Client(timeout=30.0, headers=_HEADERS, follow_redirects=True) as client:
         response = client.get(url)
     if response.status_code != 200:
         raise FunnelScraperError(
-            f"Funnel listing page returned HTTP {response.status_code} for {url}"
+            f"Funnel floorplans page returned HTTP {response.status_code} for {url}"
         )
     return response.text
 
 
 def _parse_html(html: str) -> list[dict]:
     """
-    Parse unit data from Funnel/Nestio listing page HTML.
+    Parse floor plan availability from a Funnel-powered apartment site's /floorplans/ page.
 
-    SELECTOR VERIFICATION REQUIRED: These selectors are heuristic based on
-    common Funnel page structure. Verify against a real building URL.
+    Targets div.floor-plan elements that have a data-beds attribute (skips placeholders).
+    Returns one record per available floor plan type. Since Funnel pages show floor plan
+    summaries rather than individual unit listings, the floor plan name is used as
+    unit_number and the starting price / first-available-date are used for rent and
+    availability.
 
-    Expected Funnel HTML patterns (approximate):
-    - Unit rows in elements with class containing 'unit', 'listing', or 'floorplan'
-    - Bed type in element with class 'bedrooms' or data-attribute 'beds'
-    - Rent in element with class 'price' or 'rent'
-    - Availability in element with class 'available' or 'availability'
-    - Unit number in element with class 'unit-number' or 'unit'
+    Filters to only include floor plans with available units (p.available-units text
+    contains a non-zero count or 'Available').
     """
     soup = BeautifulSoup(html, "html.parser")
     units = []
 
-    # Strategy 1: Look for structured unit listing elements
-    # Adjust selectors based on real page inspection
-    for unit_el in soup.select("[class*='unit-listing'], [class*='unit-row'], [class*='floorplan-row']"):
-        bed_el = unit_el.select_one("[class*='bed'], [class*='bedroom']")
-        rent_el = unit_el.select_one("[class*='price'], [class*='rent']")
-        avail_el = unit_el.select_one("[class*='avail'], [class*='available']")
-        num_el = unit_el.select_one("[class*='unit-number'], [class*='number']")
+    for fp_el in soup.find_all("div", attrs={"data-beds": True}):
+        # Extract data attributes
+        beds_raw = fp_el.get("data-beds", "").strip()
+        baths_raw = fp_el.get("data-baths", "").strip()
+        price_raw = fp_el.get("data-price", "").strip()
 
-        if not (bed_el and rent_el):
-            continue  # skip incomplete rows
+        if not beds_raw or not price_raw:
+            continue  # skip incomplete entries
 
-        unit_number = num_el.get_text(strip=True) if num_el else "N/A"
-        rent_text = rent_el.get_text(strip=True)
-        bed_text = bed_el.get_text(strip=True)
-        avail_text = avail_el.get_text(strip=True) if avail_el else "Available Now"
-
-        if not rent_text or not bed_text:
+        # Filter: data-price="-1" means "Call for pricing" — not currently listed
+        try:
+            if int(price_raw) < 0:
+                continue
+        except (ValueError, TypeError):
             continue
 
+        # Extract text content from child elements
+        name_el = fp_el.select_one("h3.name")
+        beds_text_el = fp_el.select_one("p.bedrooms")
+        baths_text_el = fp_el.select_one("p.bathrooms")
+        sqft_el = fp_el.select_one("p.square-feet")
+        price_text_el = fp_el.select_one("p.starting-price")
+        avail_units_el = fp_el.select_one("p.available-units")
+        avail_date_el = fp_el.select_one("p.first-available-date")
+
+        fp_name = name_el.get_text(strip=True) if name_el else "N/A"
+        beds_text = beds_text_el.get_text(strip=True) if beds_text_el else beds_raw
+        baths_text = baths_text_el.get_text(strip=True) if baths_text_el else baths_raw
+        sqft_text = sqft_el.get_text(strip=True) if sqft_el else ""
+        price_text = price_text_el.get_text(strip=True) if price_text_el else f"${price_raw}"
+        avail_date_text = avail_date_el.get_text(strip=True) if avail_date_el else "Available Now"
+
+        # Normalize sqft: "771 sf" -> "771"
+        sqft_value = None
+        if sqft_text:
+            sqft_digits = "".join(c for c in sqft_text if c.isdigit())
+            if sqft_digits:
+                sqft_value = int(sqft_digits)
+
         units.append({
-            "unit_number": unit_number,
-            "bed_type": bed_text,
-            "rent": rent_text,
-            "availability_date": avail_text,
+            "unit_number": fp_name,
+            "floor_plan_name": fp_name,
+            "bed_type": beds_text,
+            "baths": baths_text,
+            "rent": price_text,
+            "availability_date": avail_date_text,
+            "sqft": sqft_value,
         })
 
     return units
@@ -90,11 +139,13 @@ def _parse_html(html: str) -> list[dict]:
 
 def scrape(building: Building) -> list[dict]:
     """
-    Scrape unit availability from a Funnel/Nestio listing page.
+    Scrape floor plan availability from a Funnel-powered apartment site.
 
-    Returns list of raw unit dicts for normalize() / save_scrape_result().
-    Raises FunnelScraperError on HTTP error (caller should pass scrape_succeeded=False
-    to save_scrape_result).
+    Normalizes the building URL to /floorplans/, fetches the page, and parses
+    floor plan cards. Returns list of raw unit dicts for normalize() / save_scrape_result().
+
+    Raises FunnelScraperError on HTTP error.
     """
-    html = _fetch_html(building.url)
+    floorplans_url = _normalize_floorplans_url(building.url)
+    html = _fetch_html(floorplans_url)
     return _parse_html(html)
