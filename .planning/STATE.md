@@ -103,9 +103,10 @@ Progress: [████████░░] 60%
 |---|-------------|------|--------|--------|-----------|
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
 | 2 | Validate non-PPM buildings: Funnel unit table, Groupfox two-step scraper, SightMap API scraper (10 buildings) | 2026-02-19 | pending | Completed | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
+| 3 | Validate Next (SightMap / Greystar) — 22 units scraped and pushed to sheet | 2026-02-19 | a87c25e | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
 
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Quick task 2 complete. Validated Imprint (Funnel, 15 units), Axis (Groupfox, 34 units), EMME (SightMap, 9 units), AMLI 900 (SightMap, 33 units). SightMap scraper covers 10 buildings / 186 units. Normalizer handles rent ranges and bare "Available" dates. ANTHROPIC_API_KEY now set in .env.
+Stopped at: Quick task 3 complete. Validated Next (SightMap, Greystar, River North) — 22 units scraped and pushed to Google Sheet. SightMap scraper confirmed across 3 management companies.
 Resume file: .planning/phases/02-scrapers/.continue-here.md
