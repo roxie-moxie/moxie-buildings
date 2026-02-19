@@ -47,10 +47,18 @@ Plans:
   3. The Yardi/RentCafe scraper has a confirmed access method documented before any Yardi scraper code is merged — not assumed, confirmed
   4. The LLM fallback scraper (Crawl4AI + Claude Haiku) has been benchmarked against at least 5 representative long-tail sites and the per-site token cost confirms the monthly projection is within 20% of $120 before full-volume enablement
   5. A post-scrape audit query run after each tier's scrapers confirms zero units in the database carry non-canonical bed type values (e.g., raw integers or unstandardized strings)
-**Plans**: TBD
+**Plans**: 9 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — Schema migration (consecutive_zero_count), scraper deps, scrapers/base.py + platform_detect.py
+- [ ] 02-02-PLAN.md — TDD: detect_platform() and save_scrape_result() behavioral tests
+- [ ] 02-03-PLAN.md — Extend sheets_sync() with platform detection integration
+- [ ] 02-04-PLAN.md — Tier 1: RentCafe/Yardi scraper (stub) + PPM single-page scraper
+- [ ] 02-05-PLAN.md — Tier 2: Funnel/Nestio + AppFolio HTML scrapers
+- [ ] 02-06-PLAN.md — Tier 2: Bozzuto HTML scraper with Crawl4AI upgrade path
+- [ ] 02-07-PLAN.md — Tier 2: RealPage/G5 + Groupfox Crawl4AI scrapers
+- [ ] 02-08-PLAN.md — Tier 3: LLM fallback scraper (Crawl4AI + Claude Haiku)
+- [ ] 02-09-PLAN.md — LLM benchmark: 5 real sites, cost projection, human-verify checkpoint
 
 ### Phase 3: Scheduler
 **Goal**: The full 400-building scrape batch runs automatically every day at 2 AM without manual intervention, failures are logged per building, and stale buildings are flagged for admin attention
