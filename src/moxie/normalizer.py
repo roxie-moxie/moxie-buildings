@@ -114,6 +114,12 @@ class UnitInput(BaseModel):
         if s_lower.startswith("starting at"):
             s = s[len("starting at"):].strip()
         s = s.replace("$", "").replace(",", "").replace("/mo", "").strip()
+        # Handle price ranges: "$2,211 – $2,799" or "$2211-$2799" — take the lower value
+        for sep in [" – ", " - ", "–", "-"]:
+            if sep in s:
+                parts = s.split(sep)
+                s = parts[0].replace("$", "").replace(",", "").strip()
+                break
         # Convert to float first to handle ".00" and fractional cents, then to cents
         try:
             cents = round(float(s) * 100)
@@ -130,7 +136,7 @@ class UnitInput(BaseModel):
         before parsing with dateutil.
         """
         s = str(v).strip().lower()
-        if s in ("available now", "now", "immediate", "immediately", ""):
+        if s in ("available now", "available", "now", "immediate", "immediately", ""):
             return datetime.today().strftime("%Y-%m-%d")
         # Strip "available" prefix (e.g., "Available 03/25/2026" -> "03/25/2026")
         original = str(v).strip()

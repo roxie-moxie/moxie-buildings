@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
 Status: All 9 scraper plans built and passing tests. Post-verification gap work underway.
-Last activity: 2026-02-19 - Completed quick task 1: validate-building CLI + PPM scraper fix + first building validated end-to-end (100 W Chestnut, 23 units)
+Last activity: 2026-02-19 - Completed quick task 2: Funnel unit table parser, Groupfox two-step scraper, SightMap API scraper (10 buildings, 186 units), normalizer fixes
 
 Progress: [████████░░] 60%
 
@@ -102,16 +102,10 @@ Progress: [████████░░] 60%
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
-| 2 | Pick a non-PPM building from DB and scrape end-to-end to Google Sheet Availability tab | 2026-02-19 | a56c2cf | Awaiting Validation | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
-
-## Key Decisions (this session)
-
-- [2026-02-19]: Funnel scraper selectors verified against real Greystar/Funnel site — use div[data-beds] with data-price=-1 as unavailability filter; floor plan name used as unit_number
-- [2026-02-19]: Normalizer extended for Funnel rent format ("Starting at $X") and date format ("Available MM/DD/YYYY")
-- [2026-02-19]: Skip needs_classification buildings when ANTHROPIC_API_KEY is placeholder — use Tier 2 scraper buildings instead
+| 2 | Validate non-PPM buildings: Funnel unit table, Groupfox two-step scraper, SightMap API scraper (10 buildings) | 2026-02-19 | pending | Completed | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
 
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Quick task 2 in progress — Imprint (Funnel) scraped, 12 floor plans in Availability sheet tab (a56c2cf). Awaiting user validation at checkpoint:human-verify.
+Stopped at: Quick task 2 complete. Validated Imprint (Funnel, 15 units), Axis (Groupfox, 34 units), EMME (SightMap, 9 units), AMLI 900 (SightMap, 33 units). SightMap scraper covers 10 buildings / 186 units. Normalizer handles rent ranges and bare "Available" dates. ANTHROPIC_API_KEY now set in .env.
 Resume file: .planning/phases/02-scrapers/.continue-here.md

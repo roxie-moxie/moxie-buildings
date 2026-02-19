@@ -4,21 +4,23 @@ Groupfox scraper — Tier 2 JS-rendered HTML with bot-bypass.
 Groupfox returns HTTP 403 to non-browser HTTP clients (confirmed in research).
 Crawl4AI with Playwright browser fingerprint bypasses this detection.
 
-URL pattern: {subdomain}.groupfox.com/floorplans
-This scraper normalizes the building URL to always point to /floorplans.
+Two-step scrape:
+1. Fetch ``/floorplans`` index to discover floor plan sub-pages and bed/bath metadata.
+2. Follow each sub-page (e.g. ``/floorplans/studio``) to get individual unit rows
+   from ``tr.unit-container`` elements with APT#, rent, and availability date.
 
-SELECTOR NOTE: Groupfox floorplan pages expose unit listings per floorplan category.
-URL paths like /floorplans/studio, /floorplans/one-bedroom may exist.
-The main /floorplans page typically lists all floorplans with unit counts.
-Selectors MUST be verified against a real Groupfox building URL.
+Floor plans whose button says "Contact Us" (no availability) are skipped.
 
 Platform: 'groupfox'
-Coverage: ~12 buildings
+Coverage: ~12 buildings (verified against axis.groupfox.com 2026-02-19)
 """
 import asyncio
-from urllib.parse import urlparse
+import re
+from urllib.parse import urljoin, urlparse
+
 from bs4 import BeautifulSoup
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
+
 from moxie.db.models import Building
 
 
@@ -27,18 +29,18 @@ class GroupfoxScraperError(RuntimeError):
 
 
 def _normalize_floorplans_url(building_url: str) -> str:
-    """
-    Ensure the URL points to the /floorplans path.
-    If url already ends with /floorplans or /floorplans/, return as-is.
-    Otherwise, append /floorplans to the base URL.
-    """
+    """Ensure the URL points to the /floorplans path."""
     parsed = urlparse(building_url.rstrip("/"))
     path = parsed.path.rstrip("/")
     if path.endswith("/floorplans") or "/floorplans/" in path:
         return building_url
-    # Construct floorplans URL: scheme://netloc/floorplans
     base = f"{parsed.scheme}://{parsed.netloc}"
     return f"{base}/floorplans"
+
+
+def _base_url(building_url: str) -> str:
+    parsed = urlparse(building_url)
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 async def _fetch_rendered_html(url: str) -> str:
@@ -49,42 +51,89 @@ async def _fetch_rendered_html(url: str) -> str:
     return result.html or ""
 
 
-def _parse_html(html: str) -> list[dict]:
+def _parse_floorplan_index(html: str) -> list[dict]:
     """
-    Parse unit data from Groupfox /floorplans page.
+    Parse the /floorplans index page.  Returns metadata per floor plan:
+    ``{'name': str, 'beds': str, 'baths': str, 'href': str}``
 
-    SELECTOR VERIFICATION REQUIRED: Verify against a real Groupfox subdomain URL.
+    Only includes floor plans with an "Availability" link (skips "Contact Us").
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    plans = []
 
-    Groupfox /floorplans patterns (approximate):
-    - Floorplan cards: .floorplan-card, .floorplan-item
-    - Bed count: .fp-beds, [data-beds], .bedrooms
-    - Rent: .fp-rent, .price, [data-price]
-    - Unit number: may be per-floorplan availability count, not individual unit numbers
-    - Availability: 'Available Now', date, or 'Available [count] units'
+    for card in soup.select("div.card.text-center"):
+        # Floor plan name
+        title_el = card.select_one("h2.card-title")
+        name = title_el.get_text(strip=True) if title_el else None
+        if not name:
+            continue
+
+        # Bed/bath from list-inline items
+        items = card.select("ul.list-inline li.list-inline-item")
+        beds = ""
+        baths = ""
+        for item in items:
+            text = item.get_text(strip=True)
+            if "Bed" in text or "Studio" in text:
+                beds = text
+            elif "Bath" in text:
+                baths = text
+
+        # Availability link (skip "Contact Us")
+        btn = card.select_one("a.floorplan-action-button")
+        if not btn:
+            continue
+        btn_text = btn.get_text(strip=True)
+        if "Contact" in btn_text:
+            continue  # no availability
+        href = btn.get("href", "")
+        if not href or href.startswith("#"):
+            continue
+
+        plans.append({"name": name, "beds": beds, "baths": baths, "href": href})
+
+    return plans
+
+
+def _parse_unit_rows(html: str, fp_name: str, beds: str, baths: str) -> list[dict]:
+    """
+    Parse individual unit rows from a floor plan sub-page.
+
+    Each ``tr.unit-container`` has:
+    - ``td.td-card-name``: "Apartment:#NNNN"
+    - ``td.td-card-rent``: "Rent:$X,XXX"
+    - ``td.td-card-available``: "Date:M/D/YYYY"
     """
     soup = BeautifulSoup(html, "html.parser")
     units = []
 
-    for fp_el in soup.select(
-        "[class*='floorplan-card'], [class*='floorplan-item'], [class*='floor-plan']"
-    ):
-        bed_el = fp_el.select_one("[class*='bed'], [data-beds], [class*='bedroom']")
-        rent_el = fp_el.select_one("[class*='rent'], [class*='price'], [data-price]")
-        name_el = fp_el.select_one("[class*='fp-name'], [class*='floorplan-name'], h3, h4")
-        avail_el = fp_el.select_one("[class*='avail'], [class*='available']")
+    for row in soup.select("tr.unit-container"):
+        name_td = row.select_one("td.td-card-name")
+        rent_td = row.select_one("td.td-card-rent")
+        avail_td = row.select_one("td.td-card-available")
 
-        if not (bed_el and rent_el):
-            continue
+        unit_number = "N/A"
+        if name_td:
+            text = name_td.get_text(strip=True)
+            # Extract number after # — e.g. "Apartment:#4414307"
+            m = re.search(r"#(\S+)", text)
+            unit_number = m.group(1) if m else text.replace("Apartment:", "").strip()
 
-        # Groupfox may list floorplans rather than individual units;
-        # use floorplan name as unit_number if no unit number is present
-        fp_name = name_el.get_text(strip=True) if name_el else "N/A"
+        rent = "N/A"
+        if rent_td:
+            rent = rent_td.get_text(strip=True).replace("Rent:", "").strip()
+
+        avail = "Available Now"
+        if avail_td:
+            avail = avail_td.get_text(strip=True).replace("Date:", "").strip()
+
         units.append({
-            "unit_number": fp_name,
+            "unit_number": unit_number,
             "floor_plan_name": fp_name,
-            "bed_type": bed_el.get_text(strip=True),
-            "rent": rent_el.get_text(strip=True),
-            "availability_date": avail_el.get_text(strip=True) if avail_el else "Available Now",
+            "bed_type": beds,
+            "baths": baths,
+            "rent": rent,
+            "availability_date": avail,
         })
 
     return units
@@ -92,15 +141,31 @@ def _parse_html(html: str) -> list[dict]:
 
 def scrape(building: Building) -> list[dict]:
     """
-    Scrape unit availability from a Groupfox /floorplans page.
+    Scrape unit availability from a Groupfox site.
 
-    Normalizes URL to /floorplans, uses Crawl4AI to bypass bot detection,
-    parses with BeautifulSoup.
+    1. Fetches /floorplans to discover floor plan sub-pages.
+    2. Follows each sub-page to collect individual unit rows.
     """
+    base = _base_url(building.url)
     floorplans_url = _normalize_floorplans_url(building.url)
-    html = asyncio.run(_fetch_rendered_html(floorplans_url))
-    if not html:
+
+    index_html = asyncio.run(_fetch_rendered_html(floorplans_url))
+    if not index_html:
         raise GroupfoxScraperError(
             f"Crawl4AI returned empty HTML for Groupfox building: {floorplans_url}"
         )
-    return _parse_html(html)
+
+    plans = _parse_floorplan_index(index_html)
+    if not plans:
+        return []
+
+    all_units: list[dict] = []
+    for fp in plans:
+        sub_url = urljoin(base, fp["href"])
+        sub_html = asyncio.run(_fetch_rendered_html(sub_url))
+        if not sub_html:
+            continue
+        units = _parse_unit_rows(sub_html, fp["name"], fp["beds"], fp["baths"])
+        all_units.extend(units)
+
+    return all_units

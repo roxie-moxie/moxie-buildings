@@ -2,23 +2,20 @@
 Funnel/Nestio scraper — Tier 2 HTML.
 
 Funnel-powered apartment sites (used by Greystar and similar management companies)
-expose a /floorplans/ page with div.floor-plan elements, each having data attributes:
-  - data-beds (e.g., "1", "Studio", "Convertible")
-  - data-baths (e.g., "1.00")
-  - data-price (integer cents or dollars — raw price)
-  - data-first-available-date (ISO date, e.g., "2026-02-13")
+expose a /floorplans/ page with two data sections:
 
-Each div also contains:
-  - h3.name — floor plan name (used as unit_number since individual units aren't listed)
-  - p.bedrooms — beds text (e.g., "1 Bed")
-  - p.bathrooms — baths text (e.g., "1 Bath")
-  - p.square-feet — sqft text (e.g., "771 sf")
-  - p.starting-price — formatted rent (e.g., "Starting at $2,565")
-  - p.available-units — unit count (e.g., "3 Apartments Available")
-  - p.first-available-date — availability text (e.g., "Available Now")
+1. **Unit availability table** (preferred): ``table#apartments tr.unit`` rows with
+   individual apartment numbers, floor plan names, beds, baths, size, price, and
+   availability date.  Data is available as both cell text and ``data-*`` attributes
+   on the ``<tr>`` and on the Inquire ``<a>`` button.
 
-The scraper normalizes the building URL to /floorplans/ and fetches that page.
-Placeholder divs (those without data-beds) are skipped.
+2. **Floor plan summary cards** (fallback): ``div.floor-plan`` elements with
+   ``data-beds``, ``data-price``, etc.  These show starting prices per floor plan
+   type, not individual units.
+
+The scraper normalizes the building URL to /floorplans/, fetches the page, and
+tries the unit table first.  If no ``table#apartments`` is found it falls back to
+floor plan cards.
 
 Platform: 'funnel'
 Coverage: ~15-20 buildings (Greystar and other Funnel-platform operators)
@@ -69,45 +66,112 @@ def _fetch_html(url: str) -> str:
     return response.text
 
 
-def _parse_html(html: str) -> list[dict]:
+def _parse_unit_table(soup: BeautifulSoup) -> list[dict] | None:
     """
-    Parse floor plan availability from a Funnel-powered apartment site's /floorplans/ page.
+    Try to parse the individual unit availability table (``table#apartments``).
 
-    Targets div.floor-plan elements that have a data-beds attribute (skips placeholders).
-    Returns one record per available floor plan type. Since Funnel pages show floor plan
-    summaries rather than individual unit listings, the floor plan name is used as
-    unit_number and the starting price / first-available-date are used for rent and
-    availability.
-
-    Filters to only include floor plans with available units (p.available-units text
-    contains a non-zero count or 'Available').
+    Returns a list of unit dicts if the table is found and has rows, or None if
+    no table is present (so the caller can fall back to floor plan cards).
     """
-    soup = BeautifulSoup(html, "html.parser")
+    rows = soup.select("table#apartments tr.unit")
+    if not rows:
+        return None
+
+    units = []
+    for row in rows:
+        # --- unit number ---
+        # Prefer data-apartment from the Inquire button; fall back to td.apt text
+        inquire_btn = row.select_one("td.inquire a.button-2")
+        if inquire_btn and inquire_btn.get("data-apartment"):
+            unit_number = inquire_btn["data-apartment"].strip()
+        else:
+            apt_td = row.select_one("td.apt")
+            unit_number = apt_td.get_text(strip=True).replace("Apt #:", "").strip() if apt_td else "N/A"
+
+        # --- floor plan name ---
+        if inquire_btn and inquire_btn.get("data-name"):
+            fp_name = inquire_btn["data-name"].strip()
+        else:
+            plan_td = row.select_one("td.plan")
+            fp_name = plan_td.get_text(strip=True).replace("Floor Plan:", "").strip() if plan_td else ""
+
+        # --- beds / baths from <tr> data attrs ---
+        beds_raw = row.get("data-beds", "").strip()
+        baths_raw = row.get("data-baths", "").strip()
+
+        # Prefer human-readable text from cells
+        beds_td = row.select_one("td.beds")
+        beds_text = beds_td.get_text(strip=True).replace("Beds:", "").strip() if beds_td else beds_raw
+        baths_td = row.select_one("td.baths")
+        baths_text = baths_td.get_text(strip=True).replace("Baths:", "").strip() if baths_td else baths_raw
+
+        # --- price ---
+        price_raw = row.get("data-price", "").strip()
+        price_td = row.select_one("td.price")
+        price_text = price_td.get_text(strip=True).replace("Price:", "").strip() if price_td else f"${price_raw}"
+
+        # Skip units with no valid price
+        try:
+            if price_raw and int(price_raw) < 0:
+                continue
+        except (ValueError, TypeError):
+            pass
+
+        # --- availability date ---
+        avail_date_raw = row.get("data-available-date", "").strip()  # YYYY/MM/DD
+        avail_td = row.select_one("td.availability")
+        avail_text = avail_td.get_text(strip=True).replace("Available:", "").strip() if avail_td else avail_date_raw
+
+        # --- sqft ---
+        size_td = row.select_one("td.size")
+        sqft_text = size_td.get_text(strip=True).replace("Size:", "").strip() if size_td else ""
+        sqft_value = None
+        if sqft_text:
+            sqft_digits = "".join(c for c in sqft_text if c.isdigit())
+            if sqft_digits:
+                sqft_value = int(sqft_digits)
+
+        units.append({
+            "unit_number": unit_number,
+            "floor_plan_name": fp_name,
+            "bed_type": beds_text,
+            "baths": baths_text,
+            "rent": price_text,
+            "availability_date": avail_text,
+            "sqft": sqft_value,
+        })
+
+    return units
+
+
+def _parse_floorplan_cards(soup: BeautifulSoup) -> list[dict]:
+    """
+    Fallback: parse floor plan summary cards (``div.floor-plan``).
+
+    Returns one record per available floor plan type.  The floor plan name is
+    used as unit_number since individual units aren't listed in this view.
+    """
     units = []
 
     for fp_el in soup.find_all("div", attrs={"data-beds": True}):
-        # Extract data attributes
         beds_raw = fp_el.get("data-beds", "").strip()
-        baths_raw = fp_el.get("data-baths", "").strip()
         price_raw = fp_el.get("data-price", "").strip()
 
         if not beds_raw or not price_raw:
-            continue  # skip incomplete entries
+            continue
 
-        # Filter: data-price="-1" means "Call for pricing" — not currently listed
         try:
             if int(price_raw) < 0:
                 continue
         except (ValueError, TypeError):
             continue
 
-        # Extract text content from child elements
+        baths_raw = fp_el.get("data-baths", "").strip()
         name_el = fp_el.select_one("h3.name")
         beds_text_el = fp_el.select_one("p.bedrooms")
         baths_text_el = fp_el.select_one("p.bathrooms")
         sqft_el = fp_el.select_one("p.square-feet")
         price_text_el = fp_el.select_one("p.starting-price")
-        avail_units_el = fp_el.select_one("p.available-units")
         avail_date_el = fp_el.select_one("p.first-available-date")
 
         fp_name = name_el.get_text(strip=True) if name_el else "N/A"
@@ -117,7 +181,6 @@ def _parse_html(html: str) -> list[dict]:
         price_text = price_text_el.get_text(strip=True) if price_text_el else f"${price_raw}"
         avail_date_text = avail_date_el.get_text(strip=True) if avail_date_el else "Available Now"
 
-        # Normalize sqft: "771 sf" -> "771"
         sqft_value = None
         if sqft_text:
             sqft_digits = "".join(c for c in sqft_text if c.isdigit())
@@ -135,6 +198,23 @@ def _parse_html(html: str) -> list[dict]:
         })
 
     return units
+
+
+def _parse_html(html: str) -> list[dict]:
+    """
+    Parse availability from a Funnel-powered apartment site's /floorplans/ page.
+
+    Tries the individual unit table first (``table#apartments``).  If not present,
+    falls back to floor plan summary cards (``div.floor-plan``).
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Prefer individual unit rows when available
+    units = _parse_unit_table(soup)
+    if units is not None:
+        return units
+
+    return _parse_floorplan_cards(soup)
 
 
 def scrape(building: Building) -> list[dict]:

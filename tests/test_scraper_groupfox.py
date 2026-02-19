@@ -8,7 +8,8 @@ import pytest
 from unittest.mock import MagicMock
 from moxie.scrapers.tier2.groupfox import (
     _normalize_floorplans_url,
-    _parse_html,
+    _parse_floorplan_index,
+    _parse_unit_rows,
     scrape,
     GroupfoxScraperError,
 )
@@ -16,39 +17,65 @@ from moxie.scrapers.tier2.groupfox import (
 # ---------------------------------------------------------------------------
 # HTML fixtures
 # ---------------------------------------------------------------------------
-SAMPLE_HTML = """
-<div class="floorplan-card">
-  <h3 class="fp-name">Birch</h3>
-  <span class="bedrooms">1 Bedroom</span>
-  <span class="fp-rent">$2,100</span>
-  <span class="available">Available Now</span>
+INDEX_HTML = """
+<div class="card text-center h-100">
+  <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0">
+    <h2 class="card-title h4 font-weight-bold text-capitalize">Studio</h2>
+    <ul class="list-unstyled list-inline mb-2 text-sm">
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">Studio</span></div></li>
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">1</span><span class="">Bath</span></div></li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <a class="btn btn-primary btn-block btn-block track-apply floorplan-action-button" href="/floorplans/studio">Availability<span class="sr-only">for Studio</span></a>
+  </div>
+</div>
+<div class="card text-center h-100">
+  <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0">
+    <h2 class="card-title h4 font-weight-bold text-capitalize">One Bedroom</h2>
+    <ul class="list-unstyled list-inline mb-2 text-sm">
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">1</span><span class="">Bed</span></div></li>
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">1</span><span class="">Bath</span></div></li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <a class="btn btn-primary btn-block btn-block track-apply floorplan-action-button" href="/floorplans/one-bedroom">Availability<span class="sr-only">for One Bedroom</span></a>
+  </div>
+</div>
+<div class="card text-center h-100">
+  <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0">
+    <h2 class="card-title h4 font-weight-bold text-capitalize">Three Bedroom</h2>
+    <ul class="list-unstyled list-inline mb-2 text-sm">
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">3</span><span class="">Bed</span></div></li>
+      <li class="list-inline-item mr-2"><div class="d-flex align-items-center"><span class="">2</span><span class="">Bath</span></div></li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <a class="btn btn-primary btn-block btn-block track-dialog dialog-button floorplan-action-button" href="#myContactModal">Contact Us<span class="sr-only">for Three Bedroom</span></a>
+  </div>
 </div>
 """
 
-MULTI_FLOORPLAN_HTML = """
-<div class="floorplan-card">
-  <h3 class="fp-name">Oak</h3>
-  <span class="bedrooms">Studio</span>
-  <span class="fp-rent">$1,600</span>
-  <span class="available">March 1, 2026</span>
-</div>
-<div class="floorplan-card">
-  <h3 class="fp-name">Maple</h3>
-  <span class="bedrooms">2 Bedrooms</span>
-  <span class="fp-rent">$2,800</span>
-</div>
+UNIT_ROWS_HTML = """
+<table>
+  <tr class="unit-container" data-selenium-id="urow1" id="unit-container-123">
+    <td class="td-card-name"><span class="head">Apartment:</span>#4414307</td>
+    <td class="td-card-rent"><span class="head">Rent:</span>$1,865</td>
+    <td class="td-card-available"><span class="head">Date:</span>2/22/2026</td>
+    <td class="td-card-footer"><a>Apply Now</a></td>
+  </tr>
+  <tr class="unit-container" data-selenium-id="urow2" id="unit-container-456">
+    <td class="td-card-name"><span class="head">Apartment:</span>#4415809</td>
+    <td class="td-card-rent"><span class="head">Rent:</span>$1,910</td>
+    <td class="td-card-available"><span class="head">Date:</span>3/8/2026</td>
+    <td class="td-card-footer"><a>Apply Now</a></td>
+  </tr>
+</table>
 """
 
-NO_FLOORPLANS_HTML = """
+EMPTY_HTML = """
 <div class="page-content">
   <p>No floorplans available.</p>
-</div>
-"""
-
-INCOMPLETE_FLOORPLAN_HTML = """
-<div class="floorplan-card">
-  <h3 class="fp-name">Ash</h3>
-  <span class="bedrooms">1 Bedroom</span>
 </div>
 """
 
@@ -58,100 +85,102 @@ INCOMPLETE_FLOORPLAN_HTML = """
 # ---------------------------------------------------------------------------
 
 class TestNormalizeFloorplansUrl:
-    def test_normalize_floorplans_url_already_has_path(self):
-        """URL already ending in /floorplans should be returned unchanged."""
+    def test_already_has_path(self):
         url = "https://axis.groupfox.com/floorplans"
         assert _normalize_floorplans_url(url) == url
 
-    def test_normalize_floorplans_url_root(self):
-        """Root URL should get /floorplans appended."""
+    def test_root(self):
         result = _normalize_floorplans_url("https://axis.groupfox.com")
         assert result == "https://axis.groupfox.com/floorplans"
 
-    def test_normalize_floorplans_url_trailing_slash(self):
-        """URL with trailing slash should get /floorplans (not //floorplans)."""
+    def test_trailing_slash(self):
         result = _normalize_floorplans_url("https://axis.groupfox.com/")
         assert result == "https://axis.groupfox.com/floorplans"
 
-    def test_normalize_floorplans_url_with_other_path(self):
-        """URL with non-floorplans path should replace path with /floorplans."""
+    def test_with_other_path(self):
         result = _normalize_floorplans_url("https://axis.groupfox.com/about")
         assert result == "https://axis.groupfox.com/floorplans"
 
-    def test_normalize_floorplans_url_with_trailing_slash_on_floorplans(self):
-        """URL already ending in /floorplans/ should be treated as already normalized."""
+    def test_floorplans_trailing_slash_accepted(self):
         url = "https://axis.groupfox.com/floorplans/"
         result = _normalize_floorplans_url(url)
-        # Either returning as-is or normalized — both acceptable if /floorplans is present
         assert "/floorplans" in result
 
-    def test_normalize_floorplans_url_subdomain_preserved(self):
-        """Subdomain must be preserved when appending /floorplans."""
+    def test_subdomain_preserved(self):
         result = _normalize_floorplans_url("https://riverwood.groupfox.com")
         assert "riverwood.groupfox.com" in result
         assert result.endswith("/floorplans")
 
 
 # ---------------------------------------------------------------------------
-# _parse_html tests
+# _parse_floorplan_index tests
 # ---------------------------------------------------------------------------
 
-class TestParseHtml:
-    def test_parse_html_empty_returns_empty(self):
-        result = _parse_html("")
-        assert result == []
+class TestParseFloorplanIndex:
+    def test_empty_html(self):
+        assert _parse_floorplan_index("") == []
 
-    def test_parse_html_no_matching_elements_returns_empty(self):
-        result = _parse_html(NO_FLOORPLANS_HTML)
-        assert result == []
+    def test_no_cards(self):
+        assert _parse_floorplan_index(EMPTY_HTML) == []
 
-    def test_parse_html_extracts_floorplans(self):
-        result = _parse_html(SAMPLE_HTML)
-        assert len(result) == 1
-        fp = result[0]
-        assert "bed_type" in fp
-        assert "rent" in fp
-        assert "1 Bedroom" in fp["bed_type"]
-        assert "$2,100" in fp["rent"]
+    def test_extracts_available_plans(self):
+        plans = _parse_floorplan_index(INDEX_HTML)
+        # Should get Studio and One Bedroom, but NOT Three Bedroom (Contact Us)
+        assert len(plans) == 2
+        names = [p["name"] for p in plans]
+        assert "Studio" in names
+        assert "One Bedroom" in names
+        assert "Three Bedroom" not in names
 
-    def test_parse_html_extracts_floorplan_name(self):
-        result = _parse_html(SAMPLE_HTML)
-        assert result[0]["floor_plan_name"] == "Birch"
-        assert result[0]["unit_number"] == "Birch"
+    def test_extracts_href(self):
+        plans = _parse_floorplan_index(INDEX_HTML)
+        studio = next(p for p in plans if p["name"] == "Studio")
+        assert studio["href"] == "/floorplans/studio"
 
-    def test_parse_html_extracts_availability_date(self):
-        result = _parse_html(SAMPLE_HTML)
-        assert result[0]["availability_date"] == "Available Now"
+    def test_extracts_beds(self):
+        plans = _parse_floorplan_index(INDEX_HTML)
+        studio = next(p for p in plans if p["name"] == "Studio")
+        assert "Studio" in studio["beds"]
 
-    def test_parse_html_defaults_availability_to_available_now(self):
-        result = _parse_html(MULTI_FLOORPLAN_HTML)
-        maple = next(u for u in result if u.get("floor_plan_name") == "Maple")
-        assert maple["availability_date"] == "Available Now"
+    def test_skips_contact_us(self):
+        plans = _parse_floorplan_index(INDEX_HTML)
+        names = [p["name"] for p in plans]
+        assert "Three Bedroom" not in names
 
-    def test_parse_html_skips_incomplete_floorplans(self):
-        """Floorplan missing rent should be skipped."""
-        result = _parse_html(INCOMPLETE_FLOORPLAN_HTML)
-        assert result == []
 
-    def test_parse_html_extracts_multiple_floorplans(self):
-        result = _parse_html(MULTI_FLOORPLAN_HTML)
-        assert len(result) == 2
-        names = [u["floor_plan_name"] for u in result]
-        assert "Oak" in names
-        assert "Maple" in names
+# ---------------------------------------------------------------------------
+# _parse_unit_rows tests
+# ---------------------------------------------------------------------------
 
-    def test_parse_html_floor_plan_name_defaults_to_na(self):
-        """Floorplan with no name element should default to 'N/A'."""
-        html = """
-        <div class="floorplan-card">
-          <span class="bedrooms">Studio</span>
-          <span class="fp-rent">$1,500</span>
-        </div>
-        """
-        result = _parse_html(html)
-        assert len(result) == 1
-        assert result[0]["floor_plan_name"] == "N/A"
-        assert result[0]["unit_number"] == "N/A"
+class TestParseUnitRows:
+    def test_empty_html(self):
+        assert _parse_unit_rows("", "Studio", "Studio", "1Bath") == []
+
+    def test_extracts_units(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert len(units) == 2
+
+    def test_unit_number_extracted(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert units[0]["unit_number"] == "4414307"
+        assert units[1]["unit_number"] == "4415809"
+
+    def test_rent_extracted(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert units[0]["rent"] == "$1,865"
+
+    def test_availability_date_extracted(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert units[0]["availability_date"] == "2/22/2026"
+
+    def test_floorplan_name_passed_through(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert units[0]["floor_plan_name"] == "Studio"
+
+    def test_beds_baths_passed_through(self):
+        units = _parse_unit_rows(UNIT_ROWS_HTML, "Studio", "Studio", "1Bath")
+        assert units[0]["bed_type"] == "Studio"
+        assert units[0]["baths"] == "1Bath"
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +188,7 @@ class TestParseHtml:
 # ---------------------------------------------------------------------------
 
 class TestScrape:
-    def test_scrape_raises_on_empty_html(self, monkeypatch):
-        """Empty HTML from Crawl4AI should raise GroupfoxScraperError."""
+    def test_raises_on_empty_html(self, monkeypatch):
         import moxie.scrapers.tier2.groupfox as groupfox_module
 
         async def mock_fetch(url: str) -> str:
@@ -174,50 +202,15 @@ class TestScrape:
         with pytest.raises(GroupfoxScraperError, match="empty HTML"):
             groupfox_module.scrape(building)
 
-    def test_scrape_calls_normalized_url(self, monkeypatch):
-        """scrape() must call _fetch_rendered_html with the /floorplans URL."""
-        import moxie.scrapers.tier2.groupfox as groupfox_module
-
-        captured_urls = []
-
-        async def mock_fetch(url: str) -> str:
-            captured_urls.append(url)
-            return SAMPLE_HTML
-
-        monkeypatch.setattr(groupfox_module, "_fetch_rendered_html", mock_fetch)
-
-        building = MagicMock()
-        building.url = "https://axis.groupfox.com"
-
-        groupfox_module.scrape(building)
-
-        assert len(captured_urls) == 1
-        assert captured_urls[0] == "https://axis.groupfox.com/floorplans"
-
-    def test_scrape_calls_normalized_url_when_already_normalized(self, monkeypatch):
-        """When URL already has /floorplans, it should be passed as-is."""
-        import moxie.scrapers.tier2.groupfox as groupfox_module
-
-        captured_urls = []
-
-        async def mock_fetch(url: str) -> str:
-            captured_urls.append(url)
-            return SAMPLE_HTML
-
-        monkeypatch.setattr(groupfox_module, "_fetch_rendered_html", mock_fetch)
-
-        building = MagicMock()
-        building.url = "https://axis.groupfox.com/floorplans"
-
-        groupfox_module.scrape(building)
-        assert "/floorplans" in captured_urls[0]
-
-    def test_scrape_returns_parsed_units(self, monkeypatch):
-        """Valid HTML should return parsed floorplan list."""
+    def test_returns_units_from_subpages(self, monkeypatch):
         import moxie.scrapers.tier2.groupfox as groupfox_module
 
         async def mock_fetch(url: str) -> str:
-            return SAMPLE_HTML
+            if url.endswith("/floorplans"):
+                return INDEX_HTML
+            elif "/floorplans/" in url:
+                return UNIT_ROWS_HTML
+            return ""
 
         monkeypatch.setattr(groupfox_module, "_fetch_rendered_html", mock_fetch)
 
@@ -225,13 +218,49 @@ class TestScrape:
         building.url = "https://axis.groupfox.com"
 
         result = groupfox_module.scrape(building)
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert "bed_type" in result[0]
-        assert "rent" in result[0]
+        # 2 floor plans with availability x 2 units each = 4 units
+        assert len(result) == 4
+        assert all("unit_number" in u for u in result)
+        assert all("rent" in u for u in result)
 
-    def test_scrape_error_message_includes_url(self, monkeypatch):
-        """GroupfoxScraperError message should include the normalized URL."""
+    def test_fetches_correct_urls(self, monkeypatch):
+        import moxie.scrapers.tier2.groupfox as groupfox_module
+
+        captured_urls = []
+
+        async def mock_fetch(url: str) -> str:
+            captured_urls.append(url)
+            if url.endswith("/floorplans"):
+                return INDEX_HTML
+            return UNIT_ROWS_HTML
+
+        monkeypatch.setattr(groupfox_module, "_fetch_rendered_html", mock_fetch)
+
+        building = MagicMock()
+        building.url = "https://axis.groupfox.com"
+
+        groupfox_module.scrape(building)
+        assert captured_urls[0] == "https://axis.groupfox.com/floorplans"
+        assert "https://axis.groupfox.com/floorplans/studio" in captured_urls
+        assert "https://axis.groupfox.com/floorplans/one-bedroom" in captured_urls
+
+    def test_empty_subpage_skipped(self, monkeypatch):
+        import moxie.scrapers.tier2.groupfox as groupfox_module
+
+        async def mock_fetch(url: str) -> str:
+            if url.endswith("/floorplans"):
+                return INDEX_HTML
+            return ""  # empty sub-pages
+
+        monkeypatch.setattr(groupfox_module, "_fetch_rendered_html", mock_fetch)
+
+        building = MagicMock()
+        building.url = "https://axis.groupfox.com"
+
+        result = groupfox_module.scrape(building)
+        assert result == []
+
+    def test_error_message_includes_url(self, monkeypatch):
         import moxie.scrapers.tier2.groupfox as groupfox_module
 
         async def mock_fetch(url: str) -> str:
