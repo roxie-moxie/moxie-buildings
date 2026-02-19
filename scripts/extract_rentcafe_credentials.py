@@ -1,257 +1,189 @@
 #!/usr/bin/env python
 """
-Automated RentCafe credential extraction.
+RentCafe credential management for moxie-buildings.
 
-For every building with platform='rentcafe', fetches the building's page using
-Crawl4AI (JS-rendered, bypasses 403), searches the rendered HTML for embedded
-apiToken and VoyagerPropertyCode, and writes them to the DB.
+VoyagerPropertyCode (per building): extracted automatically from building
+homepages. RentCafe buildings embed a securecafe.com link (Apply Now, Floor
+Plans, etc.) — the subdomain IS the VoyagerPropertyCode.
+  e.g. https://fisherbuildingchicago.securecafe.com/ -> "fisherbuildingchicago"
 
-Architecture note (discovered 2026-02-19):
-  - VoyagerPropertyCode = securecafe.com subdomain (e.g. "fisherbuildingchicago")
-    Reliably extractable from the building homepage HTML.
-  - apiToken = server-side only. RentCafe's platform calls api.rentcafe.com
-    server-to-server; the token never appears in any client-side resource.
-    The floor plans page is Cloudflare-protected for headless browsers.
-    apiToken must be captured manually via DevTools (one per management company).
+apiToken (per management company): server-side only, cannot be extracted
+automatically. Capture once per management company via browser DevTools:
+  1. Open any building page in Chrome
+  2. DevTools -> Network tab -> filter "rentcafeapi"
+  3. Click the request -> copy apiToken from the URL query string
+  4. One token typically covers all buildings of that management company.
 
-This script extracts VoyagerPropertyCode for all rentcafe buildings.
-For apiToken, see the DevTools instructions printed for each building.
+Architecture note (2026-02-19): apiToken is a server-to-server credential —
+it never appears in client-side HTML, JavaScript bundles, or network requests
+visible to the browser. Three extraction approaches were attempted (HTML
+scraping, two-pass link-following, Playwright request interception) and all
+returned 0/236. The only path is DevTools capture per management company.
 
-Usage:
-    uv run python scripts/extract_rentcafe_credentials.py
-    uv run python scripts/extract_rentcafe_credentials.py --dry-run
-    uv run python scripts/extract_rentcafe_credentials.py --building "Fisher Building"
-    uv run python scripts/extract_rentcafe_credentials.py --force
-    uv run python scripts/extract_rentcafe_credentials.py --concurrency 3
+Sub-commands:
+  extract-codes   Fetch homepages, extract VoyagerPropertyCode, write to DB
+  set-token       Set apiToken for all buildings of a management company
+  status          Show credential coverage grouped by management company
 
-Flags:
-    --dry-run       Print what would be written without touching the DB
-    --force         Re-extract even for buildings that already have credentials
-    --building NAME Process only buildings whose name matches (case-insensitive)
-    --concurrency N Max concurrent page fetches (default: 5)
+Examples:
+  uv run rentcafe-creds extract-codes
+  uv run rentcafe-creds extract-codes --dry-run
+  uv run rentcafe-creds extract-codes --building "Fisher Building"
+  uv run rentcafe-creds extract-codes --concurrency 10 --force
 
-DB columns written:
-    rentcafe_property_id  ← VoyagerPropertyCode (e.g. "dey", "grandcentral")
-    rentcafe_api_token    ← apiToken (UUID-like string)
+  uv run rentcafe-creds set-token --company "Reside" --token "abc123..."
+  uv run rentcafe-creds set-token --company "Reside" --token "abc123..." --dry-run
+
+  uv run rentcafe-creds status
 """
 import argparse
 import asyncio
 import re
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import parse_qs, urljoin, urlparse
 
-# Make moxie importable when run as a standalone script
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from playwright.async_api import async_playwright, BrowserContext, Page
+import httpx
 
 from moxie.db.models import Building
 from moxie.db.session import SessionLocal
 
 
 # ---------------------------------------------------------------------------
-# Extraction logic — Playwright network request interception
-# ---------------------------------------------------------------------------
-# The RentCafe unit listing widget loads credentials from a property-specific
-# CDN bundle (cdngeneralmvc.rentcafe.com/ysi.bsn.*.js, 403 on direct fetch)
-# and then fires an XHR/fetch to:
-#   api.rentcafe.com/rentcafeapi.aspx?requestType=apartmentavailability
-#       &VoyagerPropertyCode=CODE&apiToken=TOKEN&...
-#
-# HTML scraping cannot capture this — the credentials only exist as request
-# parameters in the live network call. Playwright request interception is the
-# only reliable extraction method.
+# VoyagerPropertyCode extraction
 # ---------------------------------------------------------------------------
 
-_RENTCAFE_API_HOST = "api.rentcafe.com"
+# Matches any securecafe.com subdomain URL in page HTML (static or JS-rendered).
+# VoyagerPropertyCode = the subdomain.
+_SECURECAFE_RE = re.compile(
+    r'https?://([a-z0-9][a-z0-9-]*[a-z0-9])\.securecafe\.com',
+    re.IGNORECASE,
+)
 
-# Availability-page link scoring (for pass 2 fallback)
-_AVAILABILITY_KEYWORDS: frozenset[str] = frozenset({
-    "floor", "floorplan", "floor-plan", "availab", "apartment",
-    "units", "rent", "leasing", "pricing", "search", "listing",
-})
-_SKIP_KEYWORDS: frozenset[str] = frozenset({
-    "blog", "news", "gallery", "photo", "contact", "about",
-    "team", "careers", "press", "event", "social", "privacy",
-    "terms", "sitemap", "login", "register", "resident",
-})
-
-
-def _score_link(href: str, text: str) -> int:
-    combined = (href + " " + text).lower()
-    if any(s in combined for s in _SKIP_KEYWORDS):
-        return 0
-    return sum(1 for kw in _AVAILABILITY_KEYWORDS if kw in combined)
+_HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
-def _parse_credentials(request_url: str) -> tuple[str | None, str | None]:
-    """Extract (api_token, voyager_code) from a rentcafeapi.aspx request URL."""
-    params = parse_qs(urlparse(request_url).query)
-    token = params.get("apiToken", [None])[0]
-    code = (
-        params.get("VoyagerPropertyCode", [None])[0]
-        or params.get("propertyCode", [None])[0]
-        or params.get("PropertyCode", [None])[0]
-    )
-    return token, code
-
-
-async def _intercept_page(page: Page, url: str, timeout_ms: int = 15_000) -> tuple[str | None, str | None]:
-    """
-    Navigate to `url` with Playwright request interception active.
-    Returns (api_token, voyager_code) from the first rentcafeapi.aspx request
-    fired by the page, or (None, None) if none is seen before timeout.
-    """
-    api_token: str | None = None
-    voyager_code: str | None = None
-    found_event = asyncio.Event()
-
-    def on_request(request):
-        nonlocal api_token, voyager_code
-        if _RENTCAFE_API_HOST in request.url and "rentcafeapi.aspx" in request.url:
-            token, code = _parse_credentials(request.url)
-            if token and code:
-                api_token = token
-                voyager_code = code
-                found_event.set()
-
-    page.on("request", on_request)
-    try:
-        await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        # Wait up to timeout for the API call to fire after DOM is ready
-        try:
-            await asyncio.wait_for(found_event.wait(), timeout=timeout_ms / 1000)
-        except asyncio.TimeoutError:
-            pass
-    except Exception:
-        pass
-    finally:
-        page.remove_listener("request", on_request)
-
-    return api_token, voyager_code
+def _find_voyager_code(html: str) -> str | None:
+    """Return VoyagerPropertyCode from first securecafe.com URL in html, or None."""
+    m = _SECURECAFE_RE.search(html)
+    return m.group(1).lower() if m else None
 
 
 @dataclass
-class ExtractionResult:
+class ExtractResult:
     building_id: int
-    building_name: str
+    name: str
     url: str
-    api_token: str | None = None
-    voyager_property_code: str | None = None
+    voyager_code: str | None = None
+    source: str = "miss"  # "httpx", "playwright", "miss", "error"
     error: str | None = None
 
     @property
-    def success(self) -> bool:
-        return bool(self.api_token and self.voyager_property_code)
+    def ok(self) -> bool:
+        return self.voyager_code is not None
 
 
-async def _extract_one(
-    context: BrowserContext,
-    building: Building,
-    semaphore: asyncio.Semaphore,
-) -> ExtractionResult:
-    result = ExtractionResult(
-        building_id=building.id,
-        building_name=building.name,
-        url=building.url or "",
-    )
+# ---------------------------------------------------------------------------
+# Pass 1: httpx (fast — no browser overhead)
+# ---------------------------------------------------------------------------
 
-    if not building.url:
-        result.error = "no URL on building record"
-        return result
-
-    async with semaphore:
-        page = await context.new_page()
-        try:
-            # Pass 1: try the homepage
-            api_token, voyager_code = await _intercept_page(page, building.url)
-
-            # Pass 2: if not found, look for the availability subpage in the
-            # current DOM and try that page
-            if not (api_token and voyager_code):
-                links = await page.eval_on_selector_all(
-                    "a[href]",
-                    "els => els.map(e => ({href: e.href, text: e.innerText}))"
-                )
-                best_href: str | None = None
-                best_score = 0
-                for link in (links or []):
-                    href = (link.get("href") or "").strip()
-                    text = (link.get("text") or "").strip()
-                    if not href or href.startswith("mailto:") or href == building.url:
-                        continue
-                    score = _score_link(href, text)
-                    if score > best_score:
-                        best_score = score
-                        best_href = href
-
-                if best_href and best_score > 0:
-                    api_token, voyager_code = await _intercept_page(page, best_href)
-
-            result.api_token = api_token
-            result.voyager_property_code = voyager_code
-            if not result.success:
-                result.error = None  # not an error, just a miss
-        except Exception as e:
-            result.error = str(e)[:120]
-        finally:
-            await page.close()
-
-    return result
+async def _fetch_httpx(url: str, client: httpx.AsyncClient) -> str | None:
+    try:
+        resp = await client.get(url, headers=_HTTP_HEADERS, follow_redirects=True, timeout=15.0)
+        return resp.text if resp.status_code < 400 else None
+    except Exception:
+        return None
 
 
-async def _run_extraction(
+async def _pass1_httpx(
     buildings: list[Building],
     concurrency: int,
-) -> list[ExtractionResult]:
+) -> list[ExtractResult]:
     semaphore = asyncio.Semaphore(concurrency)
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
-        context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1280, "height": 800},
-        )
-        tasks = [_extract_one(context, b, semaphore) for b in buildings]
-        results = await asyncio.gather(*tasks)
-        await browser.close()
+    results: list[ExtractResult] = []
+
+    async def _one(b: Building) -> ExtractResult:
+        res = ExtractResult(building_id=b.id, name=b.name, url=b.url or "")
+        if not b.url:
+            res.source = "error"
+            res.error = "no URL"
+            return res
+        async with semaphore:
+            html = await _fetch_httpx(b.url, client)
+        if html:
+            code = _find_voyager_code(html)
+            if code:
+                res.voyager_code = code
+                res.source = "httpx"
+        return res
+
+    async with httpx.AsyncClient() as client:
+        tasks = [_one(b) for b in buildings]
+        results = list(await asyncio.gather(*tasks))
+
     return results
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# Pass 2: Playwright (JS-rendered fallback for httpx misses)
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Extract RentCafe VoyagerPropertyCode + apiToken from building pages."
-    )
-    parser.add_argument(
-        "--building", metavar="NAME",
-        help="Only process buildings whose name contains this string (case-insensitive)",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Print results without writing to the database",
-    )
-    parser.add_argument(
-        "--force", action="store_true",
-        help="Re-extract and overwrite even for buildings that already have credentials",
-    )
-    parser.add_argument(
-        "--concurrency", type=int, default=5, metavar="N",
-        help="Max concurrent page fetches (default: 5; lower if hitting rate limits)",
-    )
-    args = parser.parse_args()
+async def _pass2_playwright(
+    misses: list[ExtractResult],
+    concurrency: int,
+) -> None:
+    """Mutate misses in-place: load each page in Playwright and grep full DOM for securecafe."""
+    from playwright.async_api import async_playwright
 
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _one(res: ExtractResult) -> None:
+        async with semaphore:
+            page = await context.new_page()
+            try:
+                await page.goto(res.url, wait_until="domcontentloaded", timeout=20_000)
+                # Extra wait — some widgets render asynchronously
+                await asyncio.sleep(1.5)
+                html = await page.content()
+                code = _find_voyager_code(html)
+                if code:
+                    res.voyager_code = code
+                    res.source = "playwright"
+            except Exception as e:
+                res.error = str(e)[:100]
+                res.source = "error"
+            finally:
+                await page.close()
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context(
+            user_agent=_HTTP_HEADERS["User-Agent"],
+            viewport={"width": 1280, "height": 800},
+        )
+        await asyncio.gather(*[_one(r) for r in misses])
+        await browser.close()
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: extract-codes
+# ---------------------------------------------------------------------------
+
+def cmd_extract_codes(args) -> None:
     db = SessionLocal()
     try:
         query = db.query(Building).filter(Building.platform == "rentcafe")
@@ -263,26 +195,19 @@ def main() -> None:
         raise SystemExit(1)
 
     if not all_buildings:
-        print("No buildings with platform='rentcafe' found in DB. Run `sheets-sync` first.")
+        print("No rentcafe buildings found. Run `sheets-sync` first.")
         db.close()
         return
 
-    # Split into buildings to process vs already-credentialed
-    to_process: list[Building] = []
-    skip_count = 0
-    for b in all_buildings:
-        has_both = bool(b.rentcafe_property_id and b.rentcafe_api_token)
-        if has_both and not args.force:
-            skip_count += 1
-        else:
-            to_process.append(b)
+    to_process = [b for b in all_buildings if args.force or not b.rentcafe_property_id]
+    skip_count = len(all_buildings) - len(to_process)
 
     mode = "dry-run" if args.dry_run else "live"
-    print(f"RentCafe buildings: {len(all_buildings)} total")
-    print(f"  To process:      {len(to_process)}")
-    print(f"  Already set:     {skip_count} (use --force to re-extract)")
-    print(f"  Concurrency:     {args.concurrency}")
-    print(f"  Mode:            {mode}")
+    print(f"RentCafe buildings : {len(all_buildings)} total")
+    print(f"  To process       : {len(to_process)}")
+    print(f"  Already set      : {skip_count}  (--force to re-extract)")
+    print(f"  Concurrency      : {args.concurrency}")
+    print(f"  Mode             : {mode}")
     print()
 
     if not to_process:
@@ -290,63 +215,225 @@ def main() -> None:
         db.close()
         return
 
-    print(f"Fetching {len(to_process)} pages...")
-    print("-" * 72)
+    # --- Pass 1: httpx ---
+    print(f"Pass 1: httpx ({len(to_process)} pages)...")
+    results = asyncio.run(_pass1_httpx(to_process, concurrency=args.concurrency))
 
-    results = asyncio.run(_run_extraction(to_process, concurrency=args.concurrency))
+    p1_ok = [r for r in results if r.ok]
+    p1_miss = [r for r in results if not r.ok and r.source != "error"]
+    p1_err = [r for r in results if r.source == "error"]
+    print(f"  Found: {len(p1_ok)}  Miss: {len(p1_miss)}  Error: {len(p1_err)}")
 
-    # Print results
-    ok = miss = err = 0
-    for res in results:
-        if res.error:
-            status = "ERROR"
-            detail = res.error[:55]
-            err += 1
-        elif res.success:
-            status = "OK"
-            detail = f"code={res.voyager_property_code!r}  token={res.api_token[:8]}..."
-            ok += 1
-        else:
-            status = "MISS"
-            missing = []
-            if not res.voyager_property_code:
-                missing.append("VoyagerPropertyCode")
-            if not res.api_token:
-                missing.append("apiToken")
-            detail = "not found: " + ", ".join(missing)
-            miss += 1
+    # --- Pass 2: Playwright fallback ---
+    if p1_miss:
+        pw_concurrency = min(args.concurrency, 3)
+        print(f"\nPass 2: Playwright fallback ({len(p1_miss)} pages, concurrency={pw_concurrency})...")
+        asyncio.run(_pass2_playwright(p1_miss, concurrency=pw_concurrency))
+        p2_ok = [r for r in p1_miss if r.ok]
+        still_miss = [r for r in p1_miss if not r.ok]
+        print(f"  Found: {len(p2_ok)}  Still missing: {len(still_miss)}")
 
-        name_col = res.building_name[:42]
-        print(f"  {status:<6} {name_col:<42}  {detail}")
+    # --- Print full results ---
+    print()
+    print("-" * 76)
+    all_ok = [r for r in results if r.ok]
+    all_miss = [r for r in results if not r.ok]
 
-    print("-" * 72)
-    print(f"  {ok} extracted   {miss} not found   {err} errors   {skip_count} skipped")
+    for r in all_ok:
+        print(f"  OK     {r.name[:44]:<44}  code={r.voyager_code!r} ({r.source})")
+    for r in all_miss:
+        tag = "ERROR" if r.error else "MISS "
+        detail = (r.error or "securecafe.com link not found in page HTML")[:52]
+        print(f"  {tag}  {r.name[:44]:<44}  {detail}")
+
+    print("-" * 76)
+    ok_count = len(all_ok)
+    miss_count = sum(1 for r in all_miss if not r.error)
+    err_count = sum(1 for r in all_miss if r.error)
+    print(f"  {ok_count} extracted   {miss_count} not found   {err_count} errors   {skip_count} skipped")
     print()
 
-    if not args.dry_run and ok > 0:
-        # Write successful extractions back to DB
+    # --- Write to DB ---
+    if not args.dry_run and ok_count > 0:
         written = 0
-        for res in results:
-            if not res.success:
-                continue
-            b = db.query(Building).filter_by(id=res.building_id).first()
+        for r in all_ok:
+            b = db.query(Building).filter_by(id=r.building_id).first()
             if b:
-                b.rentcafe_property_id = res.voyager_property_code
-                b.rentcafe_api_token = res.api_token
+                b.rentcafe_property_id = r.voyager_code
                 written += 1
         db.commit()
-        print(f"Wrote credentials for {written} buildings to DB.")
-    elif args.dry_run and ok > 0:
+        print(f"Wrote VoyagerPropertyCode for {written} buildings to DB.")
+    elif args.dry_run and ok_count > 0:
         print("(dry-run: no DB writes)")
 
-    if miss > 0:
-        print()
-        print(f"{miss} buildings had no credentials in their page HTML.")
-        print("For these, manually inspect the page in browser DevTools:")
-        print("  Network tab -> filter for 'rentcafeapi' -> copy apiToken and VoyagerPropertyCode")
-        print("  Then set rentcafe_property_id and rentcafe_api_token directly in the DB.")
+    if miss_count + err_count > 0:
+        print(
+            f"\n{miss_count + err_count} buildings had no securecafe.com link in their page.\n"
+            "These may use an iframe embed or custom widget — inspect manually:\n"
+            "  View source -> Ctrl+F 'securecafe'\n"
+            "  If not found, check if the building URL is correct."
+        )
 
     db.close()
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: set-token
+# ---------------------------------------------------------------------------
+
+def cmd_set_token(args) -> None:
+    db = SessionLocal()
+    try:
+        buildings = (
+            db.query(Building)
+            .filter(
+                Building.platform == "rentcafe",
+                Building.management_company.ilike(f"%{args.company}%"),
+            )
+            .all()
+        )
+    except Exception as e:
+        print(f"DB error: {e}")
+        raise SystemExit(1)
+
+    if not buildings:
+        print(f"No rentcafe buildings found with management_company matching '{args.company}'.")
+        print("Tip: run `uv run rentcafe-creds status` to see company names.")
+        db.close()
+        return
+
+    to_update = [b for b in buildings if args.force or not b.rentcafe_api_token]
+    skip_count = len(buildings) - len(to_update)
+
+    token_preview = f"{args.token[:8]}...{args.token[-4:]}" if len(args.token) > 12 else args.token
+    print(f"Company match '{args.company}': {len(buildings)} buildings")
+    if skip_count:
+        print(f"  Skipping {skip_count} with existing token  (--force to overwrite)")
+    print(f"  Updating : {len(to_update)} buildings")
+    print(f"  Token    : {token_preview}")
+    print(f"  Mode     : {'dry-run' if args.dry_run else 'live'}")
+    print()
+
+    for b in to_update:
+        code_str = f"code={b.rentcafe_property_id!r}" if b.rentcafe_property_id else "NO_CODE (run extract-codes first)"
+        print(f"  {b.name[:52]:<52}  {code_str}")
+
+    if not args.dry_run:
+        for b in to_update:
+            b.rentcafe_api_token = args.token
+        db.commit()
+        print(f"\nSet apiToken for {len(to_update)} buildings.")
+        no_code = [b for b in to_update if not b.rentcafe_property_id]
+        if no_code:
+            print(f"  Warning: {len(no_code)} buildings still missing VoyagerPropertyCode.")
+            print("  Run `uv run rentcafe-creds extract-codes` to fill those in.")
+    else:
+        print("\n(dry-run: no DB writes)")
+
+    db.close()
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: status
+# ---------------------------------------------------------------------------
+
+def cmd_status(_args) -> None:
+    db = SessionLocal()
+    try:
+        buildings = db.query(Building).filter(Building.platform == "rentcafe").all()
+    except Exception as e:
+        print(f"DB error: {e}")
+        raise SystemExit(1)
+
+    total = len(buildings)
+    has_code = sum(1 for b in buildings if b.rentcafe_property_id)
+    has_token = sum(1 for b in buildings if b.rentcafe_api_token)
+    has_both = sum(1 for b in buildings if b.rentcafe_property_id and b.rentcafe_api_token)
+
+    print(f"RentCafe credential coverage: {total} buildings total")
+    print(f"  VoyagerPropertyCode  : {has_code:>3}/{total}  ({has_code/total*100:.0f}%)")
+    print(f"  apiToken             : {has_token:>3}/{total}  ({has_token/total*100:.0f}%)")
+    print(f"  Both (ready to run)  : {has_both:>3}/{total}  ({has_both/total*100:.0f}%)")
+    print()
+
+    by_company: dict[str, list[Building]] = defaultdict(list)
+    for b in buildings:
+        by_company[b.management_company or "(unknown)"].append(b)
+
+    rows = sorted(by_company.items(), key=lambda x: -len(x[1]))
+
+    print(f"  {'Management Company':<40} {'Bldgs':>5}  {'Code':>5}  {'Token':>7}  {'Ready':>5}")
+    print("  " + "-" * 68)
+    running = 0
+    for company, bldgs in rows:
+        count = len(bldgs)
+        codes = sum(1 for b in bldgs if b.rentcafe_property_id)
+        tokens = sum(1 for b in bldgs if b.rentcafe_api_token)
+        ready = sum(1 for b in bldgs if b.rentcafe_property_id and b.rentcafe_api_token)
+        running += count
+        cumul = running / total * 100
+        # Token column: checkmark if all buildings have it, number if partial, dash if none
+        if tokens == count:
+            token_str = "ok"
+        elif tokens > 0:
+            token_str = str(tokens)
+        else:
+            token_str = "-"
+        print(
+            f"  {company:<40} {count:>5}  {codes:>5}  {token_str:>7}  {ready:>5}  ({cumul:.0f}%)"
+        )
+
+    db.close()
+
+
+# ---------------------------------------------------------------------------
+# CLI dispatch
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Manage RentCafe credentials (VoyagerPropertyCode + apiToken).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "DevTools instructions for capturing apiToken:\n"
+            "  1. Open any building's website in Chrome\n"
+            "  2. DevTools (F12) -> Network tab -> filter 'rentcafeapi'\n"
+            "  3. Navigate to Floor Plans or Availability page\n"
+            "  4. Click any 'rentcafeapi.aspx' request\n"
+            "  5. Copy apiToken from the Request URL query string\n"
+            "  6. Run: uv run rentcafe-creds set-token --company 'Name' --token 'VALUE'"
+        ),
+    )
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    # extract-codes
+    p_ec = sub.add_parser("extract-codes", help="Extract VoyagerPropertyCode from building homepages")
+    p_ec.add_argument("--building", metavar="NAME", help="Filter: only buildings whose name contains this string")
+    p_ec.add_argument("--dry-run", action="store_true", help="Print results without writing to DB")
+    p_ec.add_argument("--force", action="store_true", help="Re-extract even for buildings that already have a code")
+    p_ec.add_argument("--concurrency", type=int, default=8, metavar="N",
+                      help="Max concurrent HTTP fetches (default: 8)")
+
+    # set-token
+    p_st = sub.add_parser("set-token", help="Set apiToken for all buildings of a management company")
+    p_st.add_argument("--company", required=True, metavar="NAME",
+                      help="Management company name (partial match, case-insensitive)")
+    p_st.add_argument("--token", required=True, metavar="UUID",
+                      help="apiToken captured from browser DevTools Network tab")
+    p_st.add_argument("--dry-run", action="store_true", help="Preview without writing to DB")
+    p_st.add_argument("--force", action="store_true", help="Overwrite existing tokens")
+
+    # status
+    sub.add_parser("status", help="Show credential coverage grouped by management company")
+
+    args = parser.parse_args()
+
+    if args.cmd == "extract-codes":
+        cmd_extract_codes(args)
+    elif args.cmd == "set-token":
+        cmd_set_token(args)
+    elif args.cmd == "status":
+        cmd_status(args)
 
 
 if __name__ == "__main__":

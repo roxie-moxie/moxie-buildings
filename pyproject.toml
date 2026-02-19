@@ -23,6 +23,7 @@ sheets-sync = "moxie.sync.sheets:main"
 export-platforms = "moxie.sync.export_platforms:main"
 scrape = "moxie.scrape:main"
 detect-platforms = "scripts.detect_platforms:main"
+rentcafe-creds = "scripts.extract_rentcafe_credentials:main"
 dev = "scripts.dev_bootstrap:main"
 
 [build-system]
