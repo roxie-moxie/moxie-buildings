@@ -31,6 +31,8 @@ DB credential mapping:
 Platform: 'rentcafe'
 Coverage: ~220 buildings (55% of total)
 """
+from urllib.parse import unquote
+
 import httpx
 from moxie.db.models import Building
 
@@ -140,9 +142,11 @@ def scrape(building: Building) -> list[dict]:
             "building record. These are embedded in the building's RentCafe page JavaScript."
         )
 
+    # Tokens may be stored URL-encoded (%3d instead of =) from browser capture.
+    # Decode before passing to httpx, which will re-encode as needed.
     raw_response = _fetch_units(
         voyager_property_code=building.rentcafe_property_id,
-        api_token=building.rentcafe_api_token,
+        api_token=unquote(building.rentcafe_api_token),
     )
 
     _check_for_api_error(raw_response)

@@ -185,6 +185,11 @@ def main() -> None:
         help="Skip saving scrape results to the database",
     )
     parser.add_argument(
+        "--platform",
+        metavar="PLATFORM",
+        help="Override scraper platform (e.g., 'llm' to force LLM fallback)",
+    )
+    parser.add_argument(
         "--sheet-only",
         action="store_true",
         default=False,
@@ -208,11 +213,14 @@ def main() -> None:
             print(f"Pushed {count} unit(s) to Availability tab.")
         else:
             # Full pipeline: scrape -> save -> push
-            # 1. Determine platform
-            raw_platform = building.platform
-            if raw_platform in (None, "needs_classification"):
-                raw_platform = detect_platform(building.url or "")
-            platform = raw_platform or "llm"
+            # 1. Determine platform (--platform override wins)
+            if args.platform:
+                platform = args.platform
+            else:
+                raw_platform = building.platform
+                if raw_platform in (None, "needs_classification"):
+                    raw_platform = detect_platform(building.url or "")
+                platform = raw_platform or "llm"
 
             # 2. Validate platform is supported
             if platform not in PLATFORM_SCRAPERS:

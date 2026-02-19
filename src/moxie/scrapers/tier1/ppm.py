@@ -4,8 +4,18 @@ PPM Apartments scraper — Tier 1 single-page availability.
 PPM publishes all units for all buildings on one page:
 https://ppmapartments.com/availability/
 
-The page is JavaScript-rendered — unit rows are injected by JS after load.
+The page is JavaScript-rendered — unit cards are injected by JS after load.
 Crawl4AI (AsyncWebCrawler) renders the page, then BeautifulSoup parses the HTML.
+
+DOM structure (confirmed 2026-02-19):
+  div.rm-listings-container > div.unit (one per unit)
+    div.spec.spec-building  → Building name (link text)
+    div.spec (Unit:)        → Unit number
+    div.spec (Availability:)→ Availability date
+    div.spec (Unit Type:)   → Bed/bath type
+    div.spec (Floorplan)    → Floor plan link
+    div.spec.spec-sm (Price:) → Rent price
+    div.spec.spec-feature   → Features
 
 Design: Call the page ONCE per scraper run, cache in memory, filter per building.
 Do NOT call the page once per building (18 buildings x 1 call = wasteful).
@@ -14,20 +24,12 @@ Platform: 'ppm'
 Coverage: ~18 buildings
 """
 import asyncio
+import re
 from bs4 import BeautifulSoup
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
 from moxie.db.models import Building
 
 PPM_URL = "https://ppmapartments.com/availability/"
-
-# Table column indices (0-based) from the confirmed PPM table structure:
-# Neighborhood | Building | Unit | Availability | Unit Type | Floorplan | Features | Price
-_COL_BUILDING = 1
-_COL_UNIT = 2
-_COL_AVAILABILITY = 3
-_COL_UNIT_TYPE = 4
-_COL_FLOORPLAN = 5
-_COL_PRICE = 7
 
 
 async def _fetch_ppm_html() -> str:
@@ -38,43 +40,64 @@ async def _fetch_ppm_html() -> str:
     return result.html or ""
 
 
+def _get_spec_value(unit_div, label: str) -> str:
+    """Extract the value from a div.spec by its label text (e.g., 'Unit:', 'Price:')."""
+    for spec in unit_div.select("div.spec"):
+        text = spec.get_text(strip=True)
+        if text.startswith(label):
+            return text[len(label):].strip()
+    return ""
+
+
 def _parse_ppm_html(html: str) -> list[dict]:
     """
-    Parse the PPM availability table from rendered HTML.
+    Parse the PPM availability page from rendered HTML (card layout).
     Returns a list of raw unit dicts (with 'building_name' field for filtering).
     """
     soup = BeautifulSoup(html, "html.parser")
     units = []
-    # Find all table rows; skip header rows (th cells only)
-    for row in soup.select("table tr"):
-        cells = row.find_all("td")
-        if len(cells) < 8:
-            continue  # header row or empty row
-        unit_type = cells[_COL_UNIT_TYPE].get_text(strip=True)
+    for card in soup.select("div.unit"):
+        building_spec = card.select_one("div.spec-building")
+        if not building_spec:
+            continue
+        building_name = building_spec.get_text(strip=True).replace("Building:", "").strip()
+        unit_number = _get_spec_value(card, "Unit:")
+        unit_type = _get_spec_value(card, "Unit Type:")
         if not unit_type:
-            continue  # skip rows without unit type data
+            continue
+        price_text = _get_spec_value(card, "Price:")
+        availability = _get_spec_value(card, "Availability:") or "Available Now"
+        # Extract floor plan name from the Floorplan link if present
+        floorplan_spec = None
+        for spec in card.select("div.spec"):
+            if "Floorplan" in spec.get_text():
+                link = spec.select_one("a")
+                floorplan_spec = link.get_text(strip=True) if link else None
+                break
         units.append({
-            "building_name": cells[_COL_BUILDING].get_text(strip=True),
-            "unit_number": cells[_COL_UNIT].get_text(strip=True),
-            "availability_date": cells[_COL_AVAILABILITY].get_text(strip=True) or "Available Now",
+            "building_name": building_name,
+            "unit_number": unit_number,
+            "availability_date": availability,
             "bed_type": unit_type,
-            "floor_plan_name": cells[_COL_FLOORPLAN].get_text(strip=True) or None,
-            "rent": cells[_COL_PRICE].get_text(strip=True),
+            "floor_plan_name": floorplan_spec,
+            "rent": price_text,
         })
     return units
 
 
+def _normalize_name(name: str) -> str:
+    """Strip punctuation and collapse whitespace for fuzzy matching."""
+    return re.sub(r"[^a-z0-9 ]", "", name.lower().strip())
+
+
 def _matches_building(unit_building_name: str, building_name: str) -> bool:
     """
-    Case-insensitive partial match: does the unit's building name contain
-    (or is contained by) the DB building name?
-
-    Handles cases where PPM uses "Streeterville Tower" but DB has "PPM - Streeterville Tower"
-    or vice versa.
+    Case-insensitive partial match with punctuation normalization.
+    Handles "100 W. Chestnut" matching "100 W Chestnut".
     """
-    unit_lower = unit_building_name.lower().strip()
-    db_lower = building_name.lower().strip()
-    return unit_lower in db_lower or db_lower in unit_lower
+    unit_norm = _normalize_name(unit_building_name)
+    db_norm = _normalize_name(building_name)
+    return unit_norm in db_norm or db_norm in unit_norm
 
 
 def _fetch_all_ppm_units() -> list[dict]:

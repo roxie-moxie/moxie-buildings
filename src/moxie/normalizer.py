@@ -31,15 +31,23 @@ BED_TYPE_ALIASES: dict[str, str] = {
     "0": "Studio",
     "0br": "Studio",
     "studio": "Studio",
+    "studio/1 bath": "Studio",
+    "studio/1bath": "Studio",
     # Convertible aliases
     "convertible": "Convertible",
     "alcove": "Convertible",
     "jr 1br": "Convertible",
+    "jr one bedroom/1 bath": "Convertible",
+    "junior one bedroom/1 bath": "Convertible",
+    "convertible/1 bath": "Convertible",
+    "convertible/1bath": "Convertible",
     # 1BR aliases
     "1": "1BR",
     "1br": "1BR",
     "1 bed": "1BR",
     "one bedroom": "1BR",
+    "1 bedroom/1bath": "1BR",
+    "1 bedroom/1 bath": "1BR",
     # 1BR+Den aliases
     "1br+den": "1BR+Den",
     "1 bed den": "1BR+Den",
@@ -49,12 +57,19 @@ BED_TYPE_ALIASES: dict[str, str] = {
     "2br": "2BR",
     "2 bed": "2BR",
     "two bedroom": "2BR",
+    "2 bedroom/1 bath": "2BR",
+    "2 bedroom/1bath": "2BR",
+    "2 bedroom/2 bath": "2BR",
+    "2 bedroom/2bath": "2BR",
     # 3BR+ aliases (4BR+ also maps to 3BR+ per spec)
     "3": "3BR+",
     "3br": "3BR+",
     "3 bed": "3BR+",
     "3+": "3BR+",
     "4br": "3BR+",
+    "3 bedroom/3 bath": "3BR+",
+    "3 bedroom/2 bath": "3BR+",
+    "3 bedroom/3bath": "3BR+",
 }
 
 

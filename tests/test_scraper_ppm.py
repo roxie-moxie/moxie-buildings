@@ -46,16 +46,31 @@ def _make_building(db, name: str = "Tower Building") -> Building:
     return b
 
 
-def _make_table_html(rows: list[tuple]) -> str:
+def _make_card_html(rows: list[tuple]) -> str:
     """
-    Build a minimal HTML table with 8 columns matching PPM structure.
+    Build minimal HTML with div.unit cards matching the current PPM DOM structure.
     rows: list of (neighborhood, building, unit, availability, unit_type, floorplan, features, price)
     """
-    row_html = ""
-    for cols in rows:
-        cells = "".join(f"<td>{c}</td>" for c in cols)
-        row_html += f"<tr>{cells}</tr>"
-    return f"<table><tr><th>Headers</th></tr>{row_html}</table>"
+    cards = ""
+    for neighborhood, building, unit, availability, unit_type, floorplan, features, price in rows:
+        floorplan_link = f'<a href="#">{floorplan}</a>' if floorplan else ""
+        cards += f"""
+        <div class="unit">
+            <div class="spec prop-remove">Neighborhood:{neighborhood}</div>
+            <div class="spec prop-remove spec-building">Building:{building}</div>
+            <div class="spec spec-sm">Unit:{unit}</div>
+            <div class="spec">Availability:{availability}</div>
+            <div class="spec">Unit Type:{unit_type}</div>
+            <div class="spec">{floorplan_link}</div>
+            <div class="spec spec-feature">Features:{features}</div>
+            <div class="spec spec-sm">Price:{price}</div>
+        </div>
+        """
+    return f'<div class="rm-listings-container">{cards}</div>'
+
+
+# Keep old alias for any tests that might reference it
+_make_table_html = _make_card_html
 
 
 # ---------------------------------------------------------------------------
@@ -90,17 +105,17 @@ class TestParsePpmHtml:
         assert result[1]["unit_number"] == "202"
         assert result[1]["building_name"] == "Park Place"
 
-    def test_parse_ppm_html_skips_rows_without_unit_type(self):
-        """Rows with empty unit type cell are skipped."""
-        html = _make_table_html([
+    def test_parse_ppm_html_skips_cards_without_unit_type(self):
+        """Cards with empty unit type are skipped."""
+        html = _make_card_html([
             ("River North", "Tower Building", "101", "Available Now", "", "Plan A", "", "$1,500"),
         ])
         result = _parse_ppm_html(html)
         assert result == []
 
-    def test_parse_ppm_html_skips_rows_with_fewer_than_8_cells(self):
-        """Rows with fewer than 8 td cells are skipped (safety check)."""
-        html = "<table><tr><td>col1</td><td>col2</td></tr></table>"
+    def test_parse_ppm_html_skips_divs_without_building_spec(self):
+        """Divs without spec-building class are skipped."""
+        html = '<div class="rm-listings-container"><div class="unit"><div class="spec">Unit:101</div></div></div>'
         result = _parse_ppm_html(html)
         assert result == []
 
