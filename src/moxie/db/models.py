@@ -23,6 +23,7 @@ class Building(Base):
         String, server_default="never", nullable=False
     )
     last_scraped_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    consecutive_zero_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     units: Mapped[list["Unit"]] = relationship(
         back_populates="building", cascade="all, delete-orphan"
