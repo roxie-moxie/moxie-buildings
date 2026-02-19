@@ -19,19 +19,19 @@ Progress: [██████░░░░] 44%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: ~16 min
-- Total execution time: ~127 min
+- Total execution time: ~145 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
-| 02-scrapers | 5/9 | ~54 min | ~11 min |
+| 02-scrapers | 6/9 | ~72 min | ~12 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (~8 min), 02-04 (~10 min), 02-05 (~10 min), 02-07 (~15 min)
+- Last 5 plans: 02-03 (~8 min), 02-04 (~10 min), 02-05 (~10 min), 02-07 (~15 min), 02-08 (~18 min)
 - Trend: Pure code scraper plans complete quickly (8-15 min); no human-verify checkpoints in Phase 2
 
 *Updated after each plan completion*
@@ -82,6 +82,9 @@ Recent decisions affecting current work:
 - [02-07]: Both scrapers have SELECTOR VERIFICATION REQUIRED comments — CSS selectors are research-informed approximations, must be confirmed against live URLs
 - [Phase 02-scrapers]: Heuristic CSS selectors with SELECTOR VERIFICATION REQUIRED comment — real page inspection needed before trusting scraper output for Funnel and AppFolio
 - [Phase 02-scrapers]: FunnelScraperError and AppFolioScraperError raised on non-2xx HTTP — not silent empty lists, preserves save_scrape_result scrape_succeeded=False path
+- [02-08]: AsyncWebCrawler tests require context manager mocking (__aenter__/__aexit__/arun) — patching arun alone fails because __aenter__ launches Playwright browsers before arun is reached
+- [02-08]: LLM scraper filtering (unit_number/bed_type/rent required) in _scrape_with_llm, not in scrape() -- tests call _scrape_with_llm directly with mocked crawler for filtering coverage
+- [02-08]: ANTHROPIC_API_KEY checked at call time in _scrape_with_llm -- import never fails; only scrape() raises EnvironmentError when key absent
 
 ### Pending Todos
 
@@ -97,5 +100,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-04-PLAN.md (RentCafe stub + PPM Crawl4AI scrapers). Next: 02-05-PLAN.md (Funnel/AppFolio already done in prior session — check 02-08)
+Stopped at: Completed 02-08-PLAN.md (LLM fallback scraper -- Crawl4AI + Claude Haiku). Next: 02-09-PLAN.md
 Resume file: None

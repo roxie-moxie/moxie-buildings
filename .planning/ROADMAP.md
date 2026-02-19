@@ -57,7 +57,7 @@ Plans:
 - [x] 02-05-PLAN.md — Tier 2: Funnel/Nestio + AppFolio HTML scrapers
 - [ ] 02-06-PLAN.md — Tier 2: Bozzuto HTML scraper with Crawl4AI upgrade path
 - [x] 02-07-PLAN.md — Tier 2: RealPage/G5 + Groupfox Crawl4AI scrapers
-- [ ] 02-08-PLAN.md — Tier 3: LLM fallback scraper (Crawl4AI + Claude Haiku)
+- [x] 02-08-PLAN.md — Tier 3: LLM fallback scraper (Crawl4AI + Claude Haiku)
 - [ ] 02-09-PLAN.md — LLM benchmark: 5 real sites, cost projection, human-verify checkpoint
 
 ### Phase 3: Scheduler
