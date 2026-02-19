@@ -5,13 +5,13 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Agents can instantly find available units matching any client's criteria across the entire downtown Chicago rental market, with data refreshed daily.
-**Current focus:** Phase 2 gap closure — operational setup before Phase 3
+**Current focus:** Validation-first scraper pipeline — one building at a time, validate with user
 
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
 Status: All 9 scraper plans built and passing tests. Post-verification gap work underway.
-Last activity: 2026-02-18 — RentCafe credential extraction script added; scraper stub replaced with real API implementation.
+Last activity: 2026-02-19 - Completed quick task 1: validate-building CLI + PPM scraper fix + first building validated end-to-end (100 W Chestnut, 23 units)
 
 Progress: [████████░░] 60%
 
@@ -97,8 +97,14 @@ Progress: [████████░░] 60%
 - [2026-02-18]: Credential extraction targets `url ILIKE '%rentcafe.com%'` not `platform='rentcafe'` — platform column not yet populated for most buildings
 - [2026-02-18]: Tier by ROI (Roxie direction) — platform scrapers first, management company scrapers second, true one-offs last
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
+
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: RentCafe credential extraction script complete. Next: .env + Google credentials setup → sheets-sync → export-platforms → extract_rentcafe_credentials → re-validate LLM scraper → Phase 3 planning.
-Resume file: None
+Last session: 2026-02-19
+Stopped at: validate-building CLI working. First building (100 W Chestnut, PPM) scraped end-to-end: 23 units in DB and Availability sheet tab. RentCafe API token issue discovered (marketing API token != availability API token, 406 error). PPM scraper fixed (new card layout + name matching). Awaiting user validation of sheet data.
+Resume file: .planning/phases/02-scrapers/.continue-here.md
