@@ -20,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 sheets-sync = "moxie.sync.sheets:main"
+scrape = "moxie.scrape:main"
 dev = "scripts.dev_bootstrap:main"
 
 [build-system]
