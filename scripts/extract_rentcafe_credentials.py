@@ -6,7 +6,12 @@ For every building with platform='rentcafe', fetches the building's page using
 Crawl4AI (JS-rendered, bypasses 403), searches the rendered HTML for embedded
 apiToken and VoyagerPropertyCode, and writes them to the DB.
 
-Extraction strategies (tried in order):
+Two-pass extraction:
+  Pass 1: fetch building homepage, try credentials directly from HTML
+  Pass 2: if pass 1 misses, follow internal links to availability/floor-plans
+          subpage (using Crawl4AI link data already fetched in pass 1), retry
+
+Extraction strategies per page (tried in order):
   1. rentcafeapi.aspx URLs in HTML — most reliable (params parsed directly from URL)
   2. JS variable / JSON property patterns — fallback for inline script embeds
 
@@ -33,7 +38,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urljoin
 
 # Make moxie importable when run as a standalone script
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -138,6 +143,53 @@ def _extract_from_html(html: str) -> tuple[str | None, str | None]:
     return api_token, voyager_code
 
 
+# Keywords that suggest a link leads to the availability / floor-plans page.
+_AVAILABILITY_KEYWORDS: frozenset[str] = frozenset({
+    "floor", "floorplan", "floor-plan", "floor_plan",
+    "availab", "apartment", "units", "rent", "leasing",
+    "pricing", "search", "listing",
+})
+# Keywords that indicate navigation noise — skip these links.
+_SKIP_KEYWORDS: frozenset[str] = frozenset({
+    "blog", "news", "gallery", "photo", "contact", "about",
+    "team", "careers", "press", "event", "social", "privacy",
+    "terms", "sitemap", "login", "register", "resident",
+})
+
+
+def _score_availability_link(href: str, text: str) -> int:
+    """Score an internal link for likelihood of leading to the availability page."""
+    combined = (href + " " + text).lower()
+    if any(skip in combined for skip in _SKIP_KEYWORDS):
+        return 0
+    return sum(1 for kw in _AVAILABILITY_KEYWORDS if kw in combined)
+
+
+def _best_subpage(crawl_result, base_url: str) -> str | None:
+    """
+    From a Crawl4AI result, pick the internal link most likely to be the
+    availability/floor-plans page. Returns absolute URL or None.
+    """
+    internal_links: list[dict] = []
+    if crawl_result.links:
+        internal_links = crawl_result.links.get("internal", []) or []
+
+    best_href: str | None = None
+    best_score = 0
+    for link in internal_links:
+        raw_href = (link.get("href") or "").strip()
+        text = (link.get("text") or "").strip()
+        if not raw_href or raw_href.startswith("#") or raw_href.startswith("mailto:"):
+            continue
+        href = urljoin(base_url, raw_href)
+        score = _score_availability_link(href, text)
+        if score > best_score:
+            best_score = score
+            best_href = href
+
+    return best_href if best_score > 0 else None
+
+
 async def _extract_one(
     crawler: AsyncWebCrawler,
     building: Building,
@@ -156,12 +208,25 @@ async def _extract_one(
     async with semaphore:
         try:
             config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
+
+            # Pass 1: fetch homepage
             crawl_result = await crawler.arun(building.url, config=config)
             html = crawl_result.html or ""
             if not html:
                 result.error = "empty HTML (possible bot block)"
                 return result
+
             api_token, voyager_code = _extract_from_html(html)
+
+            # Pass 2: if credentials not on homepage, try the availability subpage
+            if not (api_token and voyager_code):
+                subpage = _best_subpage(crawl_result, building.url)
+                if subpage and subpage != building.url:
+                    sub_result = await crawler.arun(subpage, config=config)
+                    sub_html = sub_result.html or ""
+                    if sub_html:
+                        api_token, voyager_code = _extract_from_html(sub_html)
+
             result.api_token = api_token
             result.voyager_property_code = voyager_code
         except Exception as e:
