@@ -110,12 +110,16 @@ def _fetch_units(api_url: str) -> list[dict]:
     units = []
     for u in data.get("units", []):
         fp = floor_plans.get(u.get("floor_plan_id"), {})
+        area = u.get("area")
+        # Skip placeholder units (e.g. floor plan "TEMP" with area=1)
+        if area is not None and area <= 1:
+            continue
         units.append({
             "unit_number": u.get("unit_number", "N/A"),
             "floor_plan_name": fp.get("name", ""),
             "bed_type": fp.get("bedroom_label", ""),
             "baths": fp.get("bathroom_label", ""),
-            "sqft": u.get("area"),
+            "sqft": area,
             "rent": f"${u['price']}" if u.get("price") else "N/A",
             "availability_date": u.get("display_available_on", "Available Now"),
         })
