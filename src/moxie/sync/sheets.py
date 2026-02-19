@@ -10,8 +10,13 @@ Real sheet schema (Moxie Buildings 2.0 Beta — "Buildings" tab, 541 rows):
 
 After every upsert pass, any building whose platform column is still null gets
 classified by detect_platform(). Recognized patterns (rentcafe.com, etc.) get the
-matching platform string; everything else gets 'llm'. Buildings that already have a
-platform value are never overwritten — detection fills blanks only.
+matching platform string; everything else gets 'needs_classification' (sentinel for
+manual review by Alex in the sheet). Buildings that already have a platform value
+are never overwritten by auto-detection — detection fills blanks only.
+
+Sheet wins: if the sheet's Platform column has a value for a row, it is written
+to building.platform unconditionally, overriding any existing DB value. This lets
+Alex correct wrong platform assignments directly in the sheet.
 
 Entrypoint: moxie.sync.sheets:main (registered as `sheets-sync` in pyproject.toml)
 """
@@ -63,6 +68,7 @@ def _parse_rows(raw: list[list]) -> list[dict]:
             "url": url,
             "neighborhood": cell(row, "Neighborhood") or None,
             "management_company": cell(row, "Managment") or None,  # sheet typo
+            "platform": cell(row, "Platform") or "",  # "" if column absent or blank
         })
 
     return buildings
@@ -76,8 +82,13 @@ def sheets_sync(db: Session) -> dict:
 
     After upserting, runs platform detection on all buildings whose platform is
     still null. Recognized URL patterns set the matching platform string
-    (e.g. 'rentcafe', 'ppm'); unrecognized URLs get 'llm'. Buildings that already
-    have a platform value set are never overwritten (fills blanks only).
+    (e.g. 'rentcafe', 'ppm'); unrecognized URLs get 'needs_classification' so Alex
+    can review and set the correct platform in the sheet. Buildings that already
+    have a platform value set are never overwritten by auto-detection (fills blanks only).
+
+    Sheet-wins: if the sheet's Platform column has a non-blank value, it is written
+    to building.platform unconditionally, allowing Alex to correct wrong values
+    directly in the sheet.
 
     Returns:
         dict with keys 'added', 'updated', 'deleted', 'skipped'.
@@ -123,6 +134,8 @@ def sheets_sync(db: Session) -> dict:
             existing.name = b["name"]
             existing.neighborhood = b["neighborhood"]
             existing.management_company = b["management_company"]
+            if b["platform"]:  # sheet wins: non-blank value overrides DB
+                existing.platform = b["platform"]
             updated += 1
         else:
             db.add(Building(
@@ -130,6 +143,7 @@ def sheets_sync(db: Session) -> dict:
                 url=b["url"],
                 neighborhood=b["neighborhood"],
                 management_company=b["management_company"],
+                platform=b["platform"] or None,
                 last_scrape_status="never",
             ))
             added += 1
@@ -143,7 +157,7 @@ def sheets_sync(db: Session) -> dict:
     db.flush()
     for building in db.query(Building).filter(Building.platform.is_(None)).all():
         detected = detect_platform(building.url or "")
-        building.platform = detected if detected is not None else "llm"
+        building.platform = detected if detected is not None else "needs_classification"
 
     # 8. Delete DB buildings whose URL is no longer in the sheet
     for building in db.query(Building).all():

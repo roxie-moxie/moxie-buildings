@@ -137,7 +137,12 @@ def main() -> None:
             building = matches[0]
 
         # 2. Determine platform
-        platform = building.platform or detect_platform(building.url or "") or "llm"
+        # "needs_classification" means Alex hasn't reviewed it yet; fall back to
+        # detect_platform then llm so spot-checking still works for unclassified buildings.
+        raw_platform = building.platform
+        if raw_platform in (None, "needs_classification"):
+            raw_platform = detect_platform(building.url or "")
+        platform = raw_platform or "llm"
 
         # 3. Validate platform is supported
         if platform not in PLATFORM_SCRAPERS:
