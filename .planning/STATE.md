@@ -82,6 +82,9 @@ Recent decisions affecting current work:
 - [02-07]: Both scrapers have SELECTOR VERIFICATION REQUIRED comments — CSS selectors are research-informed approximations, must be confirmed against live URLs
 - [Phase 02-scrapers]: Heuristic CSS selectors with SELECTOR VERIFICATION REQUIRED comment — real page inspection needed before trusting scraper output for Funnel and AppFolio
 - [Phase 02-scrapers]: FunnelScraperError and AppFolioScraperError raised on non-2xx HTTP — not silent empty lists, preserves save_scrape_result scrape_succeeded=False path
+- [02-06]: BozzutoScraperError raised on 403/429/503 with explicit bot detection message and Crawl4AI upgrade recommendation — distinguishes bot detection from generic HTTP errors
+- [02-06]: Multi-selector fallback in _parse_html() (available-apartment, fp-apartment, unit-card, apartment-item) — handles Bozzuto page structure variants across ~13 buildings
+- [02-06]: Crawl4AI upgrade path left as inline commented block in _fetch_html() — single-file activation, no architectural changes needed
 - [02-08]: AsyncWebCrawler tests require context manager mocking (__aenter__/__aexit__/arun) — patching arun alone fails because __aenter__ launches Playwright browsers before arun is reached
 - [02-08]: LLM scraper filtering (unit_number/bed_type/rent required) in _scrape_with_llm, not in scrape() -- tests call _scrape_with_llm directly with mocked crawler for filtering coverage
 - [02-08]: ANTHROPIC_API_KEY checked at call time in _scrape_with_llm -- import never fails; only scrape() raises EnvironmentError when key absent
@@ -100,5 +103,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-08-PLAN.md (LLM fallback scraper -- Crawl4AI + Claude Haiku). Next: 02-09-PLAN.md
+Stopped at: Completed 02-06-PLAN.md (Bozzuto HTML scraper). 02-09 is the remaining plan in Phase 2.
 Resume file: None
