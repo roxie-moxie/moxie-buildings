@@ -6,14 +6,16 @@ For every building with platform='rentcafe', fetches the building's page using
 Crawl4AI (JS-rendered, bypasses 403), searches the rendered HTML for embedded
 apiToken and VoyagerPropertyCode, and writes them to the DB.
 
-Two-pass extraction:
-  Pass 1: fetch building homepage, try credentials directly from HTML
-  Pass 2: if pass 1 misses, follow internal links to availability/floor-plans
-          subpage (using Crawl4AI link data already fetched in pass 1), retry
+Architecture note (discovered 2026-02-19):
+  - VoyagerPropertyCode = securecafe.com subdomain (e.g. "fisherbuildingchicago")
+    Reliably extractable from the building homepage HTML.
+  - apiToken = server-side only. RentCafe's platform calls api.rentcafe.com
+    server-to-server; the token never appears in any client-side resource.
+    The floor plans page is Cloudflare-protected for headless browsers.
+    apiToken must be captured manually via DevTools (one per management company).
 
-Extraction strategies per page (tried in order):
-  1. rentcafeapi.aspx URLs in HTML — most reliable (params parsed directly from URL)
-  2. JS variable / JSON property patterns — fallback for inline script embeds
+This script extracts VoyagerPropertyCode for all rentcafe buildings.
+For apiToken, see the DevTools instructions printed for each building.
 
 Usage:
     uv run python scripts/extract_rentcafe_credentials.py
@@ -38,7 +40,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import parse_qs, urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 # Make moxie importable when run as a standalone script
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -46,41 +48,93 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from dotenv import load_dotenv
 load_dotenv()
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
+from playwright.async_api import async_playwright, BrowserContext, Page
 
 from moxie.db.models import Building
 from moxie.db.session import SessionLocal
 
 
 # ---------------------------------------------------------------------------
-# Regex patterns for credential extraction
+# Extraction logic — Playwright network request interception
+# ---------------------------------------------------------------------------
+# The RentCafe unit listing widget loads credentials from a property-specific
+# CDN bundle (cdngeneralmvc.rentcafe.com/ysi.bsn.*.js, 403 on direct fetch)
+# and then fires an XHR/fetch to:
+#   api.rentcafe.com/rentcafeapi.aspx?requestType=apartmentavailability
+#       &VoyagerPropertyCode=CODE&apiToken=TOKEN&...
+#
+# HTML scraping cannot capture this — the credentials only exist as request
+# parameters in the live network call. Playwright request interception is the
+# only reliable extraction method.
 # ---------------------------------------------------------------------------
 
-# Strategy 1: rentcafeapi.aspx URL anywhere in rendered HTML
-# Captures the full URL so we can parse its query string
-_RENTCAFE_URL_RE = re.compile(
-    r'https?://[^\s"\'<>]*rentcafeapi\.aspx[^\s"\'<>]+',
-    re.IGNORECASE,
-)
+_RENTCAFE_API_HOST = "api.rentcafe.com"
 
-# Strategy 2a: apiToken as JS variable or JSON/object property
-# Matches: apiToken: "TOKEN", "apiToken": "TOKEN", apiToken = "TOKEN", apiToken='TOKEN'
-_API_TOKEN_RE = re.compile(
-    r"""["\']?apiToken["\']?\s*[:=]\s*["']([^"']{8,})["']""",
-    re.IGNORECASE,
-)
-
-# Strategy 2b: VoyagerPropertyCode as JS variable or JSON/object property
-# Matches: VoyagerPropertyCode: "dey", VoyagerPropertyCode = 'dey'
-_VOYAGER_CODE_RE = re.compile(
-    r"""["\']?VoyagerPropertyCode["\']?\s*[:=]\s*["']([^"']{1,40})["']""",
-    re.IGNORECASE,
-)
+# Availability-page link scoring (for pass 2 fallback)
+_AVAILABILITY_KEYWORDS: frozenset[str] = frozenset({
+    "floor", "floorplan", "floor-plan", "availab", "apartment",
+    "units", "rent", "leasing", "pricing", "search", "listing",
+})
+_SKIP_KEYWORDS: frozenset[str] = frozenset({
+    "blog", "news", "gallery", "photo", "contact", "about",
+    "team", "careers", "press", "event", "social", "privacy",
+    "terms", "sitemap", "login", "register", "resident",
+})
 
 
-# ---------------------------------------------------------------------------
-# Extraction logic
-# ---------------------------------------------------------------------------
+def _score_link(href: str, text: str) -> int:
+    combined = (href + " " + text).lower()
+    if any(s in combined for s in _SKIP_KEYWORDS):
+        return 0
+    return sum(1 for kw in _AVAILABILITY_KEYWORDS if kw in combined)
+
+
+def _parse_credentials(request_url: str) -> tuple[str | None, str | None]:
+    """Extract (api_token, voyager_code) from a rentcafeapi.aspx request URL."""
+    params = parse_qs(urlparse(request_url).query)
+    token = params.get("apiToken", [None])[0]
+    code = (
+        params.get("VoyagerPropertyCode", [None])[0]
+        or params.get("propertyCode", [None])[0]
+        or params.get("PropertyCode", [None])[0]
+    )
+    return token, code
+
+
+async def _intercept_page(page: Page, url: str, timeout_ms: int = 15_000) -> tuple[str | None, str | None]:
+    """
+    Navigate to `url` with Playwright request interception active.
+    Returns (api_token, voyager_code) from the first rentcafeapi.aspx request
+    fired by the page, or (None, None) if none is seen before timeout.
+    """
+    api_token: str | None = None
+    voyager_code: str | None = None
+    found_event = asyncio.Event()
+
+    def on_request(request):
+        nonlocal api_token, voyager_code
+        if _RENTCAFE_API_HOST in request.url and "rentcafeapi.aspx" in request.url:
+            token, code = _parse_credentials(request.url)
+            if token and code:
+                api_token = token
+                voyager_code = code
+                found_event.set()
+
+    page.on("request", on_request)
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+        # Wait up to timeout for the API call to fire after DOM is ready
+        try:
+            await asyncio.wait_for(found_event.wait(), timeout=timeout_ms / 1000)
+        except asyncio.TimeoutError:
+            pass
+    except Exception:
+        pass
+    finally:
+        page.remove_listener("request", on_request)
+
+    return api_token, voyager_code
+
 
 @dataclass
 class ExtractionResult:
@@ -96,102 +150,8 @@ class ExtractionResult:
         return bool(self.api_token and self.voyager_property_code)
 
 
-def _extract_from_html(html: str) -> tuple[str | None, str | None]:
-    """
-    Try to extract (api_token, voyager_property_code) from rendered page HTML.
-
-    Strategy 1: scan for rentcafeapi.aspx URLs and parse their query strings.
-    Strategy 2: regex for JS variable / JSON property patterns.
-
-    Returns (api_token, voyager_code) — either may be None if not found.
-    """
-    api_token: str | None = None
-    voyager_code: str | None = None
-
-    # Strategy 1: parse rentcafeapi.aspx URLs
-    for url_match in _RENTCAFE_URL_RE.finditer(html):
-        url_fragment = url_match.group(0)
-        query_str = url_fragment.split("?", 1)[-1] if "?" in url_fragment else ""
-        params = parse_qs(query_str)
-
-        token = params.get("apiToken", [None])[0]
-        code = (
-            params.get("VoyagerPropertyCode", [None])[0]
-            or params.get("propertyCode", [None])[0]
-            or params.get("PropertyCode", [None])[0]
-        )
-
-        if token and not api_token:
-            api_token = token
-        if code and not voyager_code:
-            voyager_code = code
-
-        if api_token and voyager_code:
-            return api_token, voyager_code
-
-    # Strategy 2: JS variable / JSON property patterns
-    if not api_token:
-        m = _API_TOKEN_RE.search(html)
-        if m:
-            api_token = m.group(1)
-
-    if not voyager_code:
-        m = _VOYAGER_CODE_RE.search(html)
-        if m:
-            voyager_code = m.group(1)
-
-    return api_token, voyager_code
-
-
-# Keywords that suggest a link leads to the availability / floor-plans page.
-_AVAILABILITY_KEYWORDS: frozenset[str] = frozenset({
-    "floor", "floorplan", "floor-plan", "floor_plan",
-    "availab", "apartment", "units", "rent", "leasing",
-    "pricing", "search", "listing",
-})
-# Keywords that indicate navigation noise — skip these links.
-_SKIP_KEYWORDS: frozenset[str] = frozenset({
-    "blog", "news", "gallery", "photo", "contact", "about",
-    "team", "careers", "press", "event", "social", "privacy",
-    "terms", "sitemap", "login", "register", "resident",
-})
-
-
-def _score_availability_link(href: str, text: str) -> int:
-    """Score an internal link for likelihood of leading to the availability page."""
-    combined = (href + " " + text).lower()
-    if any(skip in combined for skip in _SKIP_KEYWORDS):
-        return 0
-    return sum(1 for kw in _AVAILABILITY_KEYWORDS if kw in combined)
-
-
-def _best_subpage(crawl_result, base_url: str) -> str | None:
-    """
-    From a Crawl4AI result, pick the internal link most likely to be the
-    availability/floor-plans page. Returns absolute URL or None.
-    """
-    internal_links: list[dict] = []
-    if crawl_result.links:
-        internal_links = crawl_result.links.get("internal", []) or []
-
-    best_href: str | None = None
-    best_score = 0
-    for link in internal_links:
-        raw_href = (link.get("href") or "").strip()
-        text = (link.get("text") or "").strip()
-        if not raw_href or raw_href.startswith("#") or raw_href.startswith("mailto:"):
-            continue
-        href = urljoin(base_url, raw_href)
-        score = _score_availability_link(href, text)
-        if score > best_score:
-            best_score = score
-            best_href = href
-
-    return best_href if best_score > 0 else None
-
-
 async def _extract_one(
-    crawler: AsyncWebCrawler,
+    context: BrowserContext,
     building: Building,
     semaphore: asyncio.Semaphore,
 ) -> ExtractionResult:
@@ -206,31 +166,41 @@ async def _extract_one(
         return result
 
     async with semaphore:
+        page = await context.new_page()
         try:
-            config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
+            # Pass 1: try the homepage
+            api_token, voyager_code = await _intercept_page(page, building.url)
 
-            # Pass 1: fetch homepage
-            crawl_result = await crawler.arun(building.url, config=config)
-            html = crawl_result.html or ""
-            if not html:
-                result.error = "empty HTML (possible bot block)"
-                return result
-
-            api_token, voyager_code = _extract_from_html(html)
-
-            # Pass 2: if credentials not on homepage, try the availability subpage
+            # Pass 2: if not found, look for the availability subpage in the
+            # current DOM and try that page
             if not (api_token and voyager_code):
-                subpage = _best_subpage(crawl_result, building.url)
-                if subpage and subpage != building.url:
-                    sub_result = await crawler.arun(subpage, config=config)
-                    sub_html = sub_result.html or ""
-                    if sub_html:
-                        api_token, voyager_code = _extract_from_html(sub_html)
+                links = await page.eval_on_selector_all(
+                    "a[href]",
+                    "els => els.map(e => ({href: e.href, text: e.innerText}))"
+                )
+                best_href: str | None = None
+                best_score = 0
+                for link in (links or []):
+                    href = (link.get("href") or "").strip()
+                    text = (link.get("text") or "").strip()
+                    if not href or href.startswith("mailto:") or href == building.url:
+                        continue
+                    score = _score_link(href, text)
+                    if score > best_score:
+                        best_score = score
+                        best_href = href
+
+                if best_href and best_score > 0:
+                    api_token, voyager_code = await _intercept_page(page, best_href)
 
             result.api_token = api_token
             result.voyager_property_code = voyager_code
+            if not result.success:
+                result.error = None  # not an error, just a miss
         except Exception as e:
             result.error = str(e)[:120]
+        finally:
+            await page.close()
 
     return result
 
@@ -240,9 +210,20 @@ async def _run_extraction(
     concurrency: int,
 ) -> list[ExtractionResult]:
     semaphore = asyncio.Semaphore(concurrency)
-    async with AsyncWebCrawler() as crawler:
-        tasks = [_extract_one(crawler, b, semaphore) for b in buildings]
-        return await asyncio.gather(*tasks)
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 800},
+        )
+        tasks = [_extract_one(context, b, semaphore) for b in buildings]
+        results = await asyncio.gather(*tasks)
+        await browser.close()
+    return results
 
 
 # ---------------------------------------------------------------------------
