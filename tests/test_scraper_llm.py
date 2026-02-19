@@ -52,12 +52,18 @@ def _make_fake_crawler_ctx(extracted_content):
     Return a mock async context manager that simulates AsyncWebCrawler.
     The crawler's arun() returns a FakeResult with the given extracted_content.
     Does NOT launch Playwright.
+
+    FakeResult.links is set to {} so the two-pass _find_availability_link
+    finds no internal links and falls back to the original URL, allowing
+    Pass 2 (LLM extraction) to proceed with extracted_content.
     """
     class FakeResult:
         pass
 
     result = FakeResult()
     result.extracted_content = extracted_content
+    result.links = {}   # Pass 1: no internal links → fall back to original URL
+    result.html = ""    # Pass 1 also checks .html in some paths
 
     mock_crawler = MagicMock()
     mock_crawler.arun = AsyncMock(return_value=result)

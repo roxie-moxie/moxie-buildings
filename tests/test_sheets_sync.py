@@ -124,7 +124,7 @@ class TestParseRows:
 
     def test_only_expected_keys_in_output(self):
         result = _parse_rows(_raw(_make_row()))
-        assert set(result[0].keys()) == {"name", "url", "neighborhood", "management_company"}
+        assert set(result[0].keys()) == {"name", "url", "neighborhood", "management_company", "platform"}
 
     def test_empty_raw_returns_empty_list(self):
         assert _parse_rows([]) == []
@@ -329,8 +329,8 @@ class TestPlatformDetection:
         assert building is not None
         assert building.platform == "rentcafe"
 
-    def test_unrecognized_url_gets_platform_llm(self, db):
-        """A building with a custom (unrecognized) URL should get platform='llm'."""
+    def test_unrecognized_url_gets_needs_classification(self, db):
+        """A building with a custom (unrecognized) URL should get platform='needs_classification'."""
         raw = _raw(_make_row(url="https://mymysteriousapartments.com/apply"))
         with patch("moxie.sync.sheets.gspread.service_account", return_value=_mock_gc(raw)):
             sheets_sync(db)
@@ -339,7 +339,7 @@ class TestPlatformDetection:
             url="https://mymysteriousapartments.com/apply"
         ).first()
         assert building is not None
-        assert building.platform == "llm"
+        assert building.platform == "needs_classification"
 
     def test_existing_platform_not_overwritten(self, db):
         """A building with an already-set platform must not be overwritten by detection."""

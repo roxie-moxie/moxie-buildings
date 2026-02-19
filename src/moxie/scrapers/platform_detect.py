@@ -5,8 +5,9 @@ detect_platform(url) returns a platform string or None.
 None means the building should be assigned platform='llm' (catch-all).
 
 Platform strings:
-  rentcafe  -- RentCafe/Yardi (rentcafe.com)
+  rentcafe  -- RentCafe/Yardi (rentcafe.com, securecafe.com)
   ppm       -- PPM Apartments (ppmapartments.com)
+  entrata   -- Entrata (entrata.com, myentrata.com) — no scraper yet, falls back to LLM
   funnel    -- Funnel/Nestio (nestiolistings.com, funnelleasing.com)
   realpage  -- RealPage/G5 (realpage.com, g5searchmarketing.com)
   bozzuto   -- Bozzuto (bozzuto.com)
@@ -19,7 +20,10 @@ from urllib.parse import urlparse
 # Ordered list: first match wins. More specific patterns before less specific.
 PLATFORM_PATTERNS: list[tuple[str, str]] = [
     ("rentcafe", "rentcafe.com"),
+    ("rentcafe", "securecafe.com"),
     ("ppm", "ppmapartments.com"),
+    ("entrata", "entrata.com"),
+    ("entrata", "myentrata.com"),
     ("funnel", "nestiolistings.com"),
     ("funnel", "funnelleasing.com"),
     ("realpage", "realpage.com"),
@@ -30,7 +34,7 @@ PLATFORM_PATTERNS: list[tuple[str, str]] = [
 ]
 
 KNOWN_PLATFORMS: frozenset[str] = frozenset({
-    "rentcafe", "ppm", "funnel", "realpage", "bozzuto", "groupfox", "appfolio", "llm"
+    "rentcafe", "ppm", "entrata", "funnel", "realpage", "bozzuto", "groupfox", "appfolio", "llm"
 })
 
 
