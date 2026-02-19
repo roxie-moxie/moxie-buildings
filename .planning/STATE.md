@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
 Status: All 9 scraper plans built and passing tests. Post-verification gap work underway.
-Last activity: 2026-02-19 - Completed quick task 2: Funnel unit table parser, Groupfox two-step scraper, SightMap API scraper (10 buildings, 186 units), normalizer fixes
+Last activity: 2026-02-19 - Completed quick task 3: Validated Next (SightMap/Greystar) — 22 units scraped and pushed to sheet
 
 Progress: [████████░░] 60%
 
