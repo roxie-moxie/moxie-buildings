@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS
-Plan: 1 of 9 in phase — COMPLETE (02-01 done, next: 02-02)
-Status: Phase 2 in progress — scraper infrastructure complete
-Last activity: 2026-02-19 — 02-01-PLAN completed (scraper base infra, consecutive_zero_count migration)
+Plan: 2 of 9 in phase — COMPLETE (02-02 done, next: 02-03)
+Status: Phase 2 in progress — scraper infrastructure + behavioral tests complete
+Last activity: 2026-02-18 — 02-02-PLAN completed (behavioral tests for detect_platform() and save_scrape_result())
 
 Progress: [████░░░░░░] 22%
 
@@ -28,10 +28,10 @@ Progress: [████░░░░░░] 22%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
-| 02-scrapers | 1/9 | ~4 min | ~4 min |
+| 02-scrapers | 2/9 | ~12 min | ~6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min), 02-01 (4 min)
+- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min), 02-01 (4 min), 02-02 (8 min)
 - Trend: Pure code plans with no human-verify complete quickly; service verification adds time
 
 *Updated after each plan completion*
@@ -64,6 +64,9 @@ Recent decisions affecting current work:
 - [02-01]: CONSECUTIVE_ZERO_THRESHOLD=5 — buildings get needs_attention status after 5 consecutive zero-unit successful scrapes
 - [02-01]: detect_platform returns None (not 'llm') for unrecognized URLs — caller assigns llm platform
 - [02-01]: crawl4ai-setup fails on Windows with UnicodeEncodeError (cp1252/arrow char) — Playwright browsers need manual install
+- [02-02]: In-memory SQLite per test (not shared session) — each test gets a fresh DB, no state leakage between tests
+- [02-02]: Class-based test grouping by behavior path mirrors 4-path behavioral spec
+- [02-02]: CONSECUTIVE_ZERO_THRESHOLD imported from source in tests — any future constant change fails test_threshold_constant_is_five immediately
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Completed 02-01-PLAN.md (scraper infrastructure). Next: 02-02-PLAN.md
+Last session: 2026-02-18
+Stopped at: Completed 02-02-PLAN.md (behavioral tests). Next: 02-03-PLAN.md
 Resume file: None
