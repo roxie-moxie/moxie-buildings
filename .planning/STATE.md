@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS
-Plan: 7 of 9 in phase — COMPLETE (02-07 done, next: 02-08)
-Status: Phase 2 in progress — RealPage + Groupfox Crawl4AI scrapers complete
-Last activity: 2026-02-18 — 02-07-PLAN completed (RealPage/G5 and Groupfox tier2 scrapers)
+Plan: 8 of 9 in phase — COMPLETE (02-08 done, next: 02-09)
+Status: Phase 2 in progress — Tier 3 LLM fallback scraper (Crawl4AI + Claude Haiku) complete
+Last activity: 2026-02-18 — 02-08-PLAN completed (LLM fallback scraper for custom sites + Entrata)
 
-Progress: [█████░░░░░] 40%
+Progress: [██████░░░░] 44%
 
 ## Performance Metrics
 
