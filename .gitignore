@@ -2,6 +2,11 @@
 .env
 .env.local
 
+# Google service account credentials (never commit)
+google-credentials.json
+*-credentials.json
+*-service-account.json
+
 # Database
 moxie.db
 *.db
