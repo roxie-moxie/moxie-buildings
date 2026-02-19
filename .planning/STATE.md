@@ -71,11 +71,17 @@ Recent decisions affecting current work:
 - [02-03]: db.flush() required before detection query in sheets_sync() — autoflush=False sessions don't flush newly-added objects before filter() queries
 - [02-03]: Detection pass queries all null-platform buildings (not just newly upserted) — catches buildings from prior sync passes that were missed
 - [02-03]: detect_platform() returns None; sheets_sync() assigns 'llm' — fills blanks only, existing non-null platform values never overwritten
+- [02-04]: RentCafe scraper STUBBED with NotImplementedError — _fetch_units() raises until credential spike confirms API field names
+- [02-04]: RentCafeCredentialError raised before stub when property_id or api_token is missing/empty — prevents silent failure
+- [02-04]: Error:1020 guard in _check_for_api_error() prevents silent zero-unit false positives from invalid RentCafe credentials
+- [02-04]: _map_unit() uses dual field name fallback (UnitNumber/ApartmentNumber, Beds/Bedrooms) to handle API field name uncertainty
+- [02-04]: PPM _matches_building() uses bidirectional partial contains for building name prefix mismatch handling
 - [02-07]: Both Crawl4AI scrapers monkeypatch _fetch_rendered_html coroutine directly — cleaner than mocking asyncio.run, avoids event loop complications
 - [02-07]: Groupfox URL normalization reconstructs scheme://netloc/floorplans from parsed components — handles root/trailing-slash/other-path cases
 - [02-07]: Groupfox _parse_html uses floorplan name as unit_number — /floorplans page lists floorplan types, not individual units
 - [02-07]: Both scrapers have SELECTOR VERIFICATION REQUIRED comments — CSS selectors are research-informed approximations, must be confirmed against live URLs
 - [Phase 02-scrapers]: Heuristic CSS selectors with SELECTOR VERIFICATION REQUIRED comment — real page inspection needed before trusting scraper output for Funnel and AppFolio
+- [Phase 02-scrapers]: FunnelScraperError and AppFolioScraperError raised on non-2xx HTTP — not silent empty lists, preserves save_scrape_result scrape_succeeded=False path
 
 ### Pending Todos
 
@@ -91,5 +97,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 02-07-PLAN.md (RealPage + Groupfox Crawl4AI scrapers). Next: 02-08-PLAN.md
+Stopped at: Completed 02-04-PLAN.md (RentCafe stub + PPM Crawl4AI scrapers). Next: 02-05-PLAN.md (Funnel/AppFolio already done in prior session — check 02-08)
 Resume file: None
