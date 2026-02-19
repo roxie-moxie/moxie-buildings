@@ -30,8 +30,9 @@ PLATFORM_SCRAPERS = {
     "bozzuto":  "moxie.scrapers.tier2.bozzuto",
     "realpage":  "moxie.scrapers.tier2.realpage",
     "groupfox": "moxie.scrapers.tier2.groupfox",
-    # Entrata: no dedicated scraper yet — use LLM as fallback
+    # Entrata, MRI: no dedicated scraper yet — use LLM as fallback
     "entrata":  "moxie.scrapers.tier3.llm",
+    "mri":      "moxie.scrapers.tier3.llm",
     "llm":      "moxie.scrapers.tier3.llm",
 }
 

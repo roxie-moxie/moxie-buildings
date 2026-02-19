@@ -208,7 +208,7 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        query = db.query(Building).filter(Building.url.ilike("%rentcafe.com%"))
+        query = db.query(Building).filter(Building.platform == "rentcafe")
         if args.building:
             query = query.filter(Building.name.ilike(f"%{args.building}%"))
         all_buildings = query.all()
@@ -217,7 +217,7 @@ def main() -> None:
         raise SystemExit(1)
 
     if not all_buildings:
-        print("No buildings with rentcafe.com URLs found in DB. Run `sheets-sync` first.")
+        print("No buildings with platform='rentcafe' found in DB. Run `sheets-sync` first.")
         db.close()
         return
 

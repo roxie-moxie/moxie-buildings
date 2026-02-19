@@ -8,6 +8,7 @@ Platform strings:
   rentcafe  -- RentCafe/Yardi (rentcafe.com, securecafe.com)
   ppm       -- PPM Apartments (ppmapartments.com)
   entrata   -- Entrata (entrata.com, myentrata.com) — no scraper yet, falls back to LLM
+  mri       -- MRI Software (residentportal.com) — no scraper yet, falls back to LLM
   funnel    -- Funnel/Nestio (nestiolistings.com, funnelleasing.com)
   realpage  -- RealPage/G5 (realpage.com, g5searchmarketing.com)
   bozzuto   -- Bozzuto (bozzuto.com)
@@ -24,6 +25,7 @@ PLATFORM_PATTERNS: list[tuple[str, str]] = [
     ("ppm", "ppmapartments.com"),
     ("entrata", "entrata.com"),
     ("entrata", "myentrata.com"),
+    ("mri", "residentportal.com"),
     ("funnel", "nestiolistings.com"),
     ("funnel", "funnelleasing.com"),
     ("realpage", "realpage.com"),
@@ -34,7 +36,7 @@ PLATFORM_PATTERNS: list[tuple[str, str]] = [
 ]
 
 KNOWN_PLATFORMS: frozenset[str] = frozenset({
-    "rentcafe", "ppm", "entrata", "funnel", "realpage", "bozzuto", "groupfox", "appfolio", "llm"
+    "rentcafe", "ppm", "entrata", "mri", "funnel", "realpage", "bozzuto", "groupfox", "appfolio", "llm"
 })
 
 

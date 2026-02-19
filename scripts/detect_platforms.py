@@ -96,6 +96,11 @@ PLATFORM_SIGNATURES: dict[str, list[str]] = {
     ],
 
     # Other platforms we may encounter
+    "mri": [
+        "residentportal.com",      # MRI Software resident portal — definitive
+        "mrisoftware.com",         # MRI direct reference
+        "mri software",            # MRI brand mention
+    ],
     "knock": [
         "knockcrm.com",            # Knock CRM tour scheduling
     ],
@@ -116,6 +121,7 @@ PLATFORM_CHECK_ORDER: list[str] = [
     "funnel",
     "bozzuto",
     "groupfox",
+    "mri",
     "knock",
     "yardi",
 ]
