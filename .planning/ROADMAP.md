@@ -50,7 +50,7 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Schema migration (consecutive_zero_count), scraper deps, scrapers/base.py + platform_detect.py
+- [x] 02-01-PLAN.md — Schema migration (consecutive_zero_count), scraper deps, scrapers/base.py + platform_detect.py
 - [ ] 02-02-PLAN.md — TDD: detect_platform() and save_scrape_result() behavioral tests
 - [ ] 02-03-PLAN.md — Extend sheets_sync() with platform detection integration
 - [ ] 02-04-PLAN.md — Tier 1: RentCafe/Yardi scraper (stub) + PPM single-page scraper

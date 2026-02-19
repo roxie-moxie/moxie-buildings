@@ -9,29 +9,30 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation) — COMPLETE
-Plan: 3 of 3 in phase — COMPLETE
-Status: Phase 1 complete — ready to begin Phase 2
-Last activity: 2026-02-18 — 01-03-PLAN completed (all 8 human-verify checks passed)
+Phase: 2 of 5 (Scrapers) — IN PROGRESS
+Plan: 1 of 9 in phase — COMPLETE (02-01 done, next: 02-02)
+Status: Phase 2 in progress — scraper infrastructure complete
+Last activity: 2026-02-19 — 02-01-PLAN completed (scraper base infra, consecutive_zero_count migration)
 
-Progress: [████░░░░░░] 20%
+Progress: [████░░░░░░] 22%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 21 min
-- Total execution time: ~1 hour
+- Total plans completed: 4
+- Average duration: ~19 min
+- Total execution time: ~77 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 3/3 | ~73 min | ~24 min |
+| 02-scrapers | 1/9 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min with human-verify iteration)
-- Trend: Plans requiring real service verification take longer due to schema discovery
+- Last 5 plans: 01-01 (6 min), 01-02 (22 min), 01-03 (~45 min), 02-01 (4 min)
+- Trend: Pure code plans with no human-verify complete quickly; service verification adds time
 
 *Updated after each plan completion*
 
@@ -59,6 +60,10 @@ Recent decisions affecting current work:
 - [01-03]: Sheet columns in real data: Building Name, Website, Neighborhood, Managment (typo) — no platform/rentcafe columns in sheet
 - [01-03]: Rows without Website URL skipped (not errored) and counted as 'skipped' in sync result
 - [01-03]: _parse_rows() extracted as pure function for independent testability of column mapping logic
+- [02-01]: save_scrape_result separates scrape_succeeded paths — errors do not increment consecutive_zero_count, only zero-unit successes do
+- [02-01]: CONSECUTIVE_ZERO_THRESHOLD=5 — buildings get needs_attention status after 5 consecutive zero-unit successful scrapes
+- [02-01]: detect_platform returns None (not 'llm') for unrecognized URLs — caller assigns llm platform
+- [02-01]: crawl4ai-setup fails on Windows with UnicodeEncodeError (cp1252/arrow char) — Playwright browsers need manual install
 
 ### Pending Todos
 
@@ -73,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: Phase 1 complete — all 3 plans done. Begin Phase 2 planning.
+Last session: 2026-02-19
+Stopped at: Completed 02-01-PLAN.md (scraper infrastructure). Next: 02-02-PLAN.md
 Resume file: None
