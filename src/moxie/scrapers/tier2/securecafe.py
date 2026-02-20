@@ -108,7 +108,9 @@ def _parse_available_units(html: str) -> list[dict]:
             continue
 
         apt_text = apt_cell.get_text(strip=True)
-        apt_match = re.search(r"#(\w+)", apt_text)
+        # Some templates use "#buildingId-unitNum" (e.g. "#1435-406"),
+        # others use plain "#unitNum" (e.g. "#512").
+        apt_match = re.search(r"#\d+-(\w+)", apt_text) or re.search(r"#(\w+)", apt_text)
         if not apt_match:
             continue
         unit_number = apt_match.group(1)
