@@ -16,6 +16,7 @@ dependencies = [
     "crawl4ai>=0.8.0",
     "lxml>=5.0",
     "anthropic>=0.40.0",
+    "apscheduler>=3.11.2",
 ]
 
 [project.scripts]
