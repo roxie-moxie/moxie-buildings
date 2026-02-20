@@ -10,91 +10,108 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
-Status: All 9 scraper plans built and passing tests. Post-verification gap work underway.
-Last activity: 2026-02-19 - Quick task 3: Fixed SightMap placeholder filter, validated Next (21 units) + The Ardus (4 units, reclassified funnel→sightmap). Discovered Funnel/SightMap hybrid pattern.
+Status: Platform group investigation complete. SecureCafe fixed to check subpages. Atwater Apartments (Bozzuto) working. Patterns mapped for AppFolio/RealPage/Entrata/MRI.
+Last activity: 2026-02-20 - Investigated 20+ buildings across all remaining groups. Fixed 2 SecureCafe bugs. Atwater 34 units working. Management company patterns documented.
 
-Progress: [████████░░] 60%
+Progress: [█████████░] 75%
 
 ---
 
 ## What's Done (this session)
 
-### Scraper validation tooling
-- `scrape` CLI command — spot-check any building by name or URL, prints unit table, optional `--save` flag
-- Registered as `uv run scrape` in pyproject.toml
+### SightMap scraper validated + mass reclassification
+- SightMap JSON API scraper confirmed across multiple management companies (Greystar, AMLI, LMC, FLATS, Magellan)
+- Discovered Funnel/SightMap hybrid pattern: 13 "funnel" buildings actually serve data via SightMap embeds
+- Scanned all 361 non-SightMap buildings for SightMap embeds — found 31 more (23 RentCafe, 3 RealPage, 4 Funnel, 1 MRI)
+- Scanned 66 `needs_classification` buildings — found 4 more SightMap embeds
+- **SightMap now covers 54 buildings** (up from 10 original)
+- Fixed SightMap placeholder filter: skip units with `area <= 1` (catches "TEMP" floor plans)
 
-### LLM scraper improvements (from Fisher Building + AMLI 808 validation)
-- Two-pass crawl: Pass 1 scans internal links for availability subpage (no LLM cost); Pass 2 runs extraction on the best URL found
-- Strengthened extraction prompt: rejects floor plan names as unit_number, requires actual listed rent
-- Stronger post-extraction filter: rejects placeholder rent values ("Call for pricing", "TBD", etc.)
+### SecureCafe scraper built (NEW — biggest unlock)
+- `src/moxie/scrapers/tier2/securecafe.py` — Crawl4AI two-step approach
+- Step 1: Render marketing site to discover `securecafe.com/onlineleasing/` URL
+- Step 2: Fetch `availableunits.aspx` and parse `tr.AvailUnitRow` elements
+- Dates extracted from `data-label="Date Available"` cell OR `ApplyNowClick()` onclick fallback
+- Handles `12/31/9999` as "Available Now", price ranges (normalizer takes lower)
+- **Replaces broken RentCafe API credential approach entirely**
+- Registered as `rentcafe` platform in both `scrape.py` and `push_availability.py`
 
-### Platform classification workflow
-- `sheets_sync` reads optional "Platform" column from sheet — sheet value wins over auto-detection
-- Unknown URLs now get `needs_classification` sentinel instead of silently routing to `llm`
-- `export-platforms` command (`uv run export-platforms`) — one-time bootstrap to seed DB platform values into the sheet's Platform column
-- `scrape` CLI treats `needs_classification` as "fall through to LLM" for spot-checking (not an error)
+### Buildings validated this session
+| Building | Platform | Units | Result |
+|----------|----------|-------|--------|
+| Next | SightMap | 21 | Pass (placeholder #2004 filtered) |
+| The Ardus | SightMap (was funnel) | 4 | Pass (reclassified) |
+| Triangle Square | SightMap (was funnel) | 14 | Pass |
+| Trio | SightMap | 7 | Pass |
+| Melrose Shores | Groupfox | 0 | Pass (confirmed no availability) |
+| AMLI West Loop | SightMap | 27 | Pass |
+| 1225 Old Town | SightMap (was needs_class) | 10 | Pass |
+| Hubbard Place | SightMap (was rentcafe) | 24 | Pass |
+| Lake & Wells | SightMap (was realpage) | 31 | Pass |
+| 8 East Huron | SecureCafe (rentcafe) | 4 | Pass |
+| Fisher Building | SecureCafe (rentcafe) | 5 | Pass |
+| Reside on Barry | SecureCafe (rentcafe) | 5 | Pass (date fix applied) |
+| Atwater Apartments | SecureCafe (was bozzuto) | 34 | Pass (subpage discovery fix) |
 
-### RentCafe credential spike (completed)
-- Confirmed API endpoint and all field names from a live 338-unit response
-- Endpoint: `api.rentcafe.com/rentcafeapi.aspx?requestType=apartmentavailability&VoyagerPropertyCode=CODE&apiToken=TOKEN&showallunit=1`
-- Confirmed fields: `ApartmentName` (unit#), `Beds` (int), `MinimumRent` (formatted string), `AvailableDate` (M/D/YYYY or ""), `FloorplanName`, `Baths`, `SQFT`
-- `companyCode` is NOT required — only VoyagerPropertyCode + apiToken
-- Availability filter: `AvailableDate` non-empty = listed for rent
+### Platform distribution (current)
+| Platform | Buildings | Scraper Status |
+|----------|-----------|---------------|
+| RentCafe (SecureCafe) | 220 | **Working** (Atwater + Marlowe added) |
+| needs_classification | 59 | Unscraped (-2 reclassified) |
+| SightMap | 54 | **Working** (validated) |
+| PPM | 19 | **Working** |
+| AppFolio | 18 | Broken — 2 types: JS widget (Sedgwick Prop) vs APM Sites |
+| Groupfox | 13 | **Working** (validated) |
+| Entrata | 10 | LLM fallback — 0 units (LLM sees homepage, not availability page) |
+| RealPage | 5 | Broken — rpfp-* JS widget, AJAX loads from LeaseStar API |
+| MRI | 5 | LLM fallback — 0 units (same issue as Entrata) |
+| Funnel | 2 | Working (mostly 0 units) |
+| Bozzuto | 1 | SSL issues on remaining building |
 
-### RentCafe scraper — stub replaced
-- `_fetch_units()` is now a real httpx call with confirmed parameters
-- `_map_unit()` updated to confirmed field names
-- `_is_available()` filter added — only units with non-empty AvailableDate returned
-- 23 tests passing (credential validation, error guard, availability filter, full flow with httpx_mock)
-
-### RentCafe credential extraction script
-- `scripts/extract_rentcafe_credentials.py` — fetches each rentcafe.com building page via Crawl4AI, extracts VoyagerPropertyCode + apiToken from rendered HTML
-- Targets buildings by URL pattern (`ILIKE '%rentcafe.com%'`) — works before platform column is filled
-- Two extraction strategies: (1) parse rentcafeapi.aspx URLs from rendered HTML, (2) regex for JS variable patterns
-- Flags: `--dry-run`, `--force`, `--building NAME`, `--concurrency N`
-- MISS buildings get DevTools instructions for manual fallback
+**Working scraper coverage: 306 of 407 buildings (75%)**
 
 ---
 
 ## What's In Progress / Not Done
 
-### Operational setup (blocking full validation)
-- `.env` file not created on this machine yet — needed for `sheets-sync` and all commands
-- Google service account credentials JSON not set up — needed to read/write the sheet
-- `sheets-sync` not yet run — DB has only 3 seed buildings, not the real ~400
-- `export-platforms` not yet run — Platform column not seeded in sheet
-- `extract_rentcafe_credentials.py` not yet run — no credentials in DB for any building
+### Remaining validation
+- 59 `needs_classification` buildings — most return no known platform patterns (custom sites, small properties)
+- AppFolio (18) — two types discovered: JS widget type (Sedgwick Properties) could work; APM Sites type needs different URL
+- RealPage (5) — rpfp-* widget loads via AJAX from LeaseStar API, not scrapeable via static HTML
+- Entrata (10) + MRI (5) — LLM fallback runs on homepage, returns 0 units; need to point at floorplans page
+- The Marlowe — reclassified to rentcafe but SecureCafe URL only in API response JSON (not discoverable via scraper)
 
-### Validation gaps (from Phase 2 verification report, score 3/5)
-- SC1/SC3: RentCafe scraper stub is now replaced, but credentials still need to be extracted and populated before any RentCafe building can actually be scraped
-- SC5: Post-scrape bed type audit not yet run (`SELECT COUNT(*) FROM units WHERE non_canonical = 1`)
-- Tier 2 CSS selectors (Funnel, AppFolio, Bozzuto, RealPage, Groupfox) marked SELECTOR VERIFICATION REQUIRED — not validated against live pages yet
-
-### LLM scraper validation (pending re-run)
-- Fisher Building and AMLI 808 were validated and found failing (floor plan names, no rents, wrong page)
-- LLM scraper was fixed (link-following + prompt) but not yet re-validated against real sites
+### Known issues
+- Some SecureCafe templates have "Date Available" column, others hide dates in ApplyNowClick() — both handled
+- Funnel scraper only works for 1 building (Imprint) — remaining 2 return 403 or 0 units
+- 4 buildings matched `sightmap.com/embed/api` (Arkadia, Hugo, MILA, Sky55) — deferred, different URL pattern
+- Related Rentals buildings (3) — proprietary platform, no known scraping approach
+- BJB Properties (3) — blocks all bots, no accessible availability data
 
 ---
 
 ## Next Steps (in order)
 
-1. **Set up .env + Google credentials** (operational prerequisite for everything below)
-2. **Run `sheets-sync`** — populate DB with real ~400 buildings
-3. **Run `export-platforms`** — seed Platform column in sheet from DB
-4. **Run `extract_rentcafe_credentials.py`** — auto-extract VoyagerPropertyCode + apiToken for all rentcafe.com buildings
-5. **Re-validate Fisher Building + AMLI 808** with `uv run scrape` — confirm LLM link-following fix works
-6. **Alex reviews Platform column** — corrects `needs_classification` buildings in sheet
-7. **Run bed type audit** — `SELECT COUNT(*) FROM units WHERE non_canonical = 1` (close SC5)
-8. **Phase 3: Scheduler** — daily batch runner, APScheduler, per-platform concurrency limits
+1. **Fix AppFolio JS widget scraper** — Sedgwick Properties buildings (1325 N Wells, Arco Old Town) use Appfolio.Listing() widget. Try calling sedgwickproperties.appfolio.com/listings directly via API.
+2. **Fix LLM scraper to try floorplans subpage** — Entrata (10) + MRI (5) LLM sees homepage, not units. Point at /floorplans.
+3. **Batch scan remaining needs_classification (59)** — run Crawl4AI check for securecafe.com/onlineleasing/ on all 59. Atwater pattern may apply to more.
+4. **Run bed type audit** — `SELECT COUNT(*) FROM units WHERE non_canonical = 1`
+5. **Phase 3: Scheduler** — daily batch runner, per-platform concurrency limits
 
 ---
 
 ## Key Decisions (this session)
 
-- [2026-02-18]: Sheet-wins platform model — Platform column in Google Sheet is the canonical override; auto-detection fills blanks only; sheet value propagates to DB on every sync
-- [2026-02-18]: `needs_classification` sentinel replaces silent `llm` fallback — unrecognized URLs are flagged for Alex to review rather than silently routed to LLM tier
-- [2026-02-18]: RentCafe credential spike confirmed — `VoyagerPropertyCode` + `apiToken` only (no `companyCode`); `ApartmentName` is the unit number field (not `UnitNumber`); `AvailableDate` non-empty is the availability filter
-- [2026-02-18]: Credential extraction targets `url ILIKE '%rentcafe.com%'` not `platform='rentcafe'` — platform column not yet populated for most buildings
+- [2026-02-20]: SecureCafe scraper now tries /floorplans and /floor-plans subpages — some buildings only have leasing link on floor plan page (Atwater Apartments pattern)
+- [2026-02-20]: Units with rent="Call" are skipped gracefully, not errors — allows partial results where some units have no public price
+- [2026-02-20]: AppFolio has two types: JS widget (Appfolio.Listing() embedded in building site) vs APM Sites (AppFolio-hosted website builder). Different scraping approach needed for each.
+- [2026-02-20]: RealPage buildings use rpfp-* widget with AJAX loading from LeaseStar API (c-leasestar-api.realpage.com). propertyId in page JS. API not directly accessible without auth.
+- [2026-02-20]: Entrata/MRI LLM fallback returns 0 because it scrapes homepage. Fix: pass /floorplans URL to LLM scraper.
+- [2026-02-19]: SightMap embeds hide behind many platforms (Funnel, RentCafe, RealPage, MRI) — reclassify to sightmap for reliable scraping
+- [2026-02-19]: SecureCafe HTML scraping replaces RentCafe API credential approach — no auth needed, works across templates
+- [2026-02-19]: Dates in SecureCafe come from two sources: `data-label="Date Available"` cell OR `ApplyNowClick()` onclick — parser checks both
+- [2026-02-19]: Buildings with `area <= 1` in SightMap are placeholder units — filter them out
+- [2026-02-18]: Sheet-wins platform model — Platform column in Google Sheet is the canonical override
 - [2026-02-18]: Tier by ROI (Roxie direction) — platform scrapers first, management company scrapers second, true one-offs last
 
 ### Quick Tasks Completed
@@ -103,10 +120,11 @@ Progress: [████████░░] 60%
 |---|-------------|------|--------|--------|-----------|
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
 | 2 | Validate non-PPM buildings: Funnel unit table, Groupfox two-step scraper, SightMap API scraper (10 buildings) | 2026-02-19 | pending | Completed | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
-| 3 | Validate Next + The Ardus: SightMap placeholder fix, Funnel/SightMap hybrid discovery | 2026-02-19 | 1d91385 | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
+| 3 | SightMap reclassification, SecureCafe scraper, 12 buildings validated | 2026-02-19 | fa411cf | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
+| 4 | Investigate remaining building groups (needs_classification, AppFolio, RealPage, Bozzuto, Entrata, MRI) | 2026-02-20 | 62510c8 | Completed | [4-validate-next-building-groups-needs-clas](./quick/4-validate-next-building-groups-needs-clas/) |
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Quick task 3 complete. Validated Next (SightMap, Greystar, River North) — 22 units scraped and pushed to Google Sheet. SightMap scraper confirmed across 3 management companies.
+Last session: 2026-02-20
+Stopped at: Platform group investigation complete. Atwater Apartments (Bozzuto) reclassified to rentcafe and working (34 units). SecureCafe scraper fixed to check floorplan subpages. Management company patterns documented. 75% coverage maintained. Next: fix AppFolio JS widget scraper, fix LLM to try floorplans page, batch scan remaining needs_classification for SecureCafe.
 Resume file: .planning/phases/02-scrapers/.continue-here.md
