@@ -68,10 +68,11 @@ Plans:
   1. The APScheduler cron job fires at 2 AM daily, runs the Google Sheets sync first, then runs all scrapers in parallel with per-platform concurrency limits — verifiable by inspecting the scrape_runs log after an overnight run
   2. Each scraper run produces a scrape_runs row with building ID, run timestamp, success/failure status, and unit count — observable by querying the scrape_runs table
   3. A simulated full 400-building dry run completes without hitting platform rate limits — confirmed by zero 429 responses and no IP blocks during the dry run
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Batch infrastructure: scraper registry, per-building runner, thread pool orchestrator, SQLite WAL, scrape-all CLI
+- [ ] 03-02-PLAN.md — APScheduler 2 AM cron, Google Sheets status push, rotating log, scrape_runs pruning
 
 ### Phase 4: API Layer
 **Goal**: Authenticated FastAPI endpoints expose unit search with all filter parameters, admin account management, and admin scrape controls — fully testable against real database data from Phase 3 batch runs
@@ -112,6 +113,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 8/9 | In Progress|  |
-| 3. Scheduler | 0/TBD | Not started | - |
+| 3. Scheduler | 0/2 | Not started | - |
 | 4. API Layer | 0/TBD | Not started | - |
 | 5. Frontend | 0/TBD | Not started | - |
