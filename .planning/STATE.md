@@ -121,7 +121,7 @@ Progress: [█████████░] 75%
 | 1 | Validation-first scraper pipeline: scrape one RentCafe building end-to-end and push results to Google Sheet Availability tab | 2026-02-19 | 2ee0ae0 | In Progress | [1-validation-first-scraper-pipeline-scrape](./quick/1-validation-first-scraper-pipeline-scrape/) |
 | 2 | Validate non-PPM buildings: Funnel unit table, Groupfox two-step scraper, SightMap API scraper (10 buildings) | 2026-02-19 | pending | Completed | [2-pick-a-building-from-the-db-not-ppm-scra](./quick/2-pick-a-building-from-the-db-not-ppm-scra/) |
 | 3 | SightMap reclassification, SecureCafe scraper, 12 buildings validated | 2026-02-19 | fa411cf | Completed | [3-validate-random-unvalidated-building-scr](./quick/3-validate-random-unvalidated-building-scr/) |
-| 4 | Investigate remaining building groups (needs_classification, AppFolio, RealPage, Bozzuto, Entrata, MRI) | 2026-02-20 | 62510c8 | Completed | [4-validate-next-building-groups-needs-clas](./quick/4-validate-next-building-groups-needs-clas/) |
+| 4 | Investigate remaining building groups (needs_classification, AppFolio, RealPage, Bozzuto, Entrata, MRI) | 2026-02-20 | 62510c8 | Verified | [4-validate-next-building-groups-needs-clas](./quick/4-validate-next-building-groups-needs-clas/) |
 
 ## Session Continuity
 
