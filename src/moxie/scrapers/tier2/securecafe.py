@@ -63,107 +63,108 @@ def _discover_securecafe_url(html: str) -> str | None:
 def _parse_available_units(html: str) -> list[dict]:
     """Parse the availableunits.aspx page for unit data.
 
-    Structure:
-      - Floor plan sections with header like
-        "Apartment Details and Selection for Floor Plan: 1 Bed / 1 Bath - ..."
-      - Within each section: a table with columns
-        Apartment | Sq.Ft. | Rent | Date Available | Action
-      - Unit rows contain: #NNNN | sqft | $X,XXX | date or "Available"
+    Uses two data sources:
+      1. ``tr.AvailUnitRow`` elements with ``data-label`` cells for sqft, rent.
+      2. ``ApplyNowClick(...)`` in the Select button's onclick for the availability date.
+         Format: ``ApplyNowClick("unitId","fpId","propId","M/D/YYYY",...)``
+
+    Floor plan bed/bath comes from section headers:
+      "Apartment Details and Selection for Floor Plan: 1 Bed / 1 Bath - ..."
     """
     soup = BeautifulSoup(html, "html.parser")
     container = soup.select_one("div.availableunits")
     if not container:
         return []
 
+    # Build a map of floor plan bed/bath from section headers
+    # Each table.availableUnits has a caption with the floor plan info
+    table_fp: dict[str, dict] = {}  # table id -> {beds, baths, fp_name}
+    for caption in container.select("caption"):
+        text = caption.get_text(strip=True)
+        fp_match = re.search(r"Floor Plan:\s*(.+?)(?:\s*-\s*|\s*$)", text)
+        fp_name = fp_match.group(1).strip() if fp_match else ""
+
+        bed_match = re.search(r"(\d+)\s*Bed", text)
+        bath_match = re.search(r"([\d.]+)\s*Bath", text)
+        studio_match = re.search(r"Studio", text, re.IGNORECASE)
+
+        beds = "Studio" if studio_match else ""
+        if not studio_match and bed_match:
+            beds = f"{bed_match.group(1)}BR" if bed_match.group(1) != "1" else "1BR"
+        baths = bath_match.group(1) if bath_match else ""
+
+        table = caption.parent
+        if table:
+            table_fp[id(table)] = {"beds": beds, "baths": baths, "fp_name": fp_name}
+
     units: list[dict] = []
-    current_beds = ""
-    current_baths = ""
-    current_fp_name = ""
 
-    # Walk through text content to find floor plan headers and unit data
-    # The page has sections like:
-    #   "Floor Plan : X Bed / Y Bath - ..."
-    #   followed by table rows with unit data
-    for section_header in container.find_all(string=re.compile(r"Apartment Details and Selection for Floor Plan:")):
-        header_text = section_header.strip()
-        # Extract bed/bath from header
-        # Format: "... Floor Plan: 1 Bed / 1 Bath - 1 Bedroom, 1 Bathroom"
-        # or "... Floor Plan: 2 Bed / 2.5 Bath - ..."
-        fp_match = re.search(
-            r"Floor Plan:\s*(.+?)(?:\s*-\s*|\s*$)", header_text
-        )
-        if fp_match:
-            current_fp_name = fp_match.group(1).strip()
-
-        bed_match = re.search(r"(\d+)\s*Bed", header_text)
-        bath_match = re.search(r"([\d.]+)\s*Bath", header_text)
-        studio_match = re.search(r"Studio", header_text, re.IGNORECASE)
-
-        if studio_match:
-            current_beds = "Studio"
-        elif bed_match:
-            current_beds = f"{bed_match.group(1)}BR" if bed_match.group(1) != "1" else "1BR"
-        current_baths = bath_match.group(1) if bath_match else ""
-
-        # Find the parent element and look for the unit table within it
-        parent = section_header.parent
-        while parent and parent.name not in ("div", "section", "fieldset"):
-            parent = parent.parent
-
-        if not parent:
+    for row in container.select("tr.AvailUnitRow"):
+        # Unit number from th or td with data-label="Apartment"
+        apt_cell = row.find(attrs={"data-label": "Apartment"})
+        if not apt_cell:
+            apt_cell = row.find("th")
+        if not apt_cell:
             continue
 
-        # Find unit rows — look for apartment numbers (#NNNN)
-        for apt_el in parent.find_all(string=re.compile(r"#\w+")):
-            apt_text = apt_el.strip()
-            apt_match = re.search(r"#(\w+)", apt_text)
-            if not apt_match:
-                continue
+        apt_text = apt_cell.get_text(strip=True)
+        apt_match = re.search(r"#(\w+)", apt_text)
+        if not apt_match:
+            continue
+        unit_number = apt_match.group(1)
 
-            unit_number = apt_match.group(1)
+        # SqFt from data-label="Sq.Ft."
+        sqft_cell = row.find(attrs={"data-label": "Sq.Ft."})
+        sqft = None
+        if sqft_cell:
+            sqft_text = sqft_cell.get_text(strip=True).replace(",", "")
+            if sqft_text.isdigit():
+                sqft = int(sqft_text)
 
-            # Navigate to sibling cells to get sqft, rent, date
-            # The data follows the unit number in subsequent text nodes/elements
-            row = apt_el.parent
-            while row and row.name not in ("tr", "div", "li"):
-                row = row.parent
+        # Rent from data-label="Rent"
+        rent_cell = row.find(attrs={"data-label": "Rent"})
+        rent = "N/A"
+        if rent_cell:
+            rent = rent_cell.get_text(strip=True)
 
-            if not row:
-                continue
+        # Date Available: check data-label="Date Available" cell first
+        avail = "Available Now"
+        date_cell = row.find(attrs={"data-label": "Date Available"})
+        if date_cell:
+            date_text = date_cell.get_text(strip=True)
+            if re.search(r"\d+/\d+/\d+", date_text):
+                avail = date_text
+            elif date_text.lower() in ("available", "available now", ""):
+                avail = "Available Now"
 
-            row_text = row.get_text(separator="|", strip=True)
-            parts = [p.strip() for p in row_text.split("|") if p.strip()]
+        # Fallback: extract date from ApplyNowClick button onclick
+        if avail == "Available Now":
+            select_btn = row.find(attrs={"class": "UnitSelect"})
+            if select_btn:
+                onclick = select_btn.get("onclick", "")
+                date_match = re.search(r"(\d{1,2}/\d{1,2}/\d{4})", onclick)
+                if date_match:
+                    date_str = date_match.group(1)
+                    # 12/31/9999 = no date / available now
+                    if date_str != "12/31/9999":
+                        avail = date_str
 
-            sqft = None
-            rent = "N/A"
-            avail = "Available Now"
+        # Bed/bath from parent table's caption
+        table = row.find_parent("table")
+        fp_info = table_fp.get(id(table), {}) if table else {}
+        bed_type = fp_info.get("beds", "")
+        baths = fp_info.get("baths", "")
+        fp_name = fp_info.get("fp_name", "")
 
-            for part in parts:
-                # Skip the apartment number itself
-                if part.startswith("#"):
-                    continue
-                # Rent: starts with $ or contains digits with $
-                if "$" in part:
-                    rent = part
-                # SqFt: pure number (3-5 digits)
-                elif re.match(r"^\d{3,5}$", part):
-                    sqft = int(part)
-                # Date: contains / (like 4/5/2026)
-                elif re.search(r"\d+/\d+/\d+", part):
-                    avail = part
-                # "Available" text
-                elif part.lower() in ("available", "available now"):
-                    avail = "Available Now"
-
-            units.append({
-                "unit_number": unit_number,
-                "floor_plan_name": current_fp_name,
-                "bed_type": current_beds,
-                "baths": current_baths,
-                "sqft": sqft,
-                "rent": rent,
-                "availability_date": avail,
-            })
+        units.append({
+            "unit_number": unit_number,
+            "floor_plan_name": fp_name,
+            "bed_type": bed_type,
+            "baths": baths,
+            "sqft": sqft,
+            "rent": rent,
+            "availability_date": avail,
+        })
 
     return units
 
