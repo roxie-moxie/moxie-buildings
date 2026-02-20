@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Schema, normalization, Sheets sync, and dev environment — the layer every scraper depends on
 - [ ] **Phase 2: Scrapers** - All scraper modules across three tiers covering ~400 buildings
-- [ ] **Phase 3: Scheduler** - Daily batch runner with failure handling and stale flagging
+- [x] **Phase 3: Scheduler** - Daily batch runner with failure handling and stale flagging (completed 2026-02-20)
 - [ ] **Phase 4: API Layer** - FastAPI auth, filter/search endpoints, and admin endpoints
 - [ ] **Phase 5: Frontend** - Agent search UI and admin dashboard wired to the live API
 
@@ -113,6 +113,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 8/9 | In Progress|  |
-| 3. Scheduler | 1/2 | In Progress | - |
+| 3. Scheduler | 2/2 | Complete   | 2026-02-20 |
 | 4. API Layer | 0/TBD | Not started | - |
 | 5. Frontend | 0/TBD | Not started | - |

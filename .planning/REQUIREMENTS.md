@@ -8,7 +8,7 @@
 ### Infrastructure
 
 - [x] **INFRA-01**: System reads building list from Google Sheets and syncs records (building name, URL, neighborhood, management company) to the local database
-- [ ] **INFRA-02**: All scrapes run automatically on a daily scheduled basis without manual intervention
+- [x] **INFRA-02**: All scrapes run automatically on a daily scheduled basis without manual intervention
 - [x] **INFRA-03**: On scrape failure, last known unit data is retained and the building is marked as stale
 
 ### Data Model
@@ -81,7 +81,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Complete |
-| INFRA-02 | Phase 3 | Pending |
+| INFRA-02 | Phase 3 | Complete |
 | INFRA-03 | Phase 2 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |

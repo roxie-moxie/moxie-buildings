@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 3 of 5 (Scheduler) — IN PROGRESS (plan 1/2 complete)
-Status: Batch scraping infrastructure complete. scrape-all CLI running, 349 buildings in dry-run. WAL mode active. Next: APScheduler cron + Google Sheets status push (03-02).
-Last activity: 2026-02-20 - Built batch scraping infrastructure (scraper registry, runner, batch orchestrator, scrape-all CLI, WAL mode).
+Phase: 3 of 5 (Scheduler) — COMPLETE (2/2 plans done)
+Status: Phase 03 complete. Daily batch automation operational: scrape-all --schedule fires run_batch at 2 AM Central, Scrape Status tab pushed to Google Sheet, rotating log at logs/scrape_batch.log, scrape_runs pruned at 30 days.
+Last activity: 2026-02-20 - Built APScheduler cron, Sheets status push, rotating log, scrape_runs pruning (03-02).
 
-Progress: [█████████░] 76%
+Progress: [██████████] 78%
 
 ---
 
@@ -130,6 +130,10 @@ Progress: [█████████░] 76%
 
 ## Key Decisions (this session)
 
+- [2026-02-20]: APScheduler imports deferred to --schedule branch — no import cost on immediate scrape-all runs
+- [2026-02-20]: APScheduler pending jobs use job.trigger.get_next_fire_time() not job.next_run_time — latter is None before scheduler.start()
+- [2026-02-20]: Sheets push failure does not crash batch — monitoring is not core function; wrapped in try/except
+- [2026-02-20]: Single ws.update() call for Scrape Status tab — one API request for 349+ building rows
 - [2026-02-20]: PLATFORM_SCRAPERS centralized in registry.py — eliminates duplicate dicts in scrape.py and push_availability.py
 - [2026-02-20]: SQLite WAL mode + 30s busy_timeout enabled on engine connect for safe concurrent batch writes
 - [2026-02-20]: Clear-on-failure semantics in batch runner — units deleted on scraper error (stale data is not real data)
@@ -164,5 +168,5 @@ Progress: [█████████░] 76%
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 03-01-PLAN.md — batch scraping infrastructure (scraper registry, runner, batch orchestrator, WAL mode, scrape-all CLI). scrape-all --dry-run --skip-sync lists 349 buildings. Next: 03-02-PLAN.md (APScheduler cron, Sheets status push, rotating log, scrape_runs pruning).
-Resume file: .planning/phases/03-scheduler/03-02-PLAN.md
+Stopped at: Completed 03-02-PLAN.md — APScheduler 2 AM cron, Sheets Scrape Status tab, rotating log, scrape_runs pruning. Phase 03 complete. Next: Phase 04 (UI/API).
+Resume file: (phase 03 complete)
