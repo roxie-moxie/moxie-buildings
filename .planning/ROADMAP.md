@@ -71,7 +71,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Batch infrastructure: scraper registry, per-building runner, thread pool orchestrator, SQLite WAL, scrape-all CLI
+- [x] 03-01-PLAN.md — Batch infrastructure: scraper registry, per-building runner, thread pool orchestrator, SQLite WAL, scrape-all CLI
 - [ ] 03-02-PLAN.md — APScheduler 2 AM cron, Google Sheets status push, rotating log, scrape_runs pruning
 
 ### Phase 4: API Layer
@@ -113,6 +113,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 8/9 | In Progress|  |
-| 3. Scheduler | 0/2 | Not started | - |
+| 3. Scheduler | 1/2 | In Progress | - |
 | 4. API Layer | 0/TBD | Not started | - |
 | 5. Frontend | 0/TBD | Not started | - |

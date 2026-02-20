@@ -9,9 +9,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 2 of 5 (Scrapers) — IN PROGRESS (gap closure)
-Status: LLM scraper fixed to probe /floorplans before link scoring. AppFolio Sedgwick (2 buildings) working. SightMap expanded to 58 buildings (+4 via api.js embed fix). 310 buildings working.
-Last activity: 2026-02-20 - Fixed LLM scraper (explicit subpage probing + JS delay), AppFolio Sedgwick scraper (direct listings API), SightMap api.js regex fix (+4 buildings). 7 buildings validated this session.
+Phase: 3 of 5 (Scheduler) — IN PROGRESS (plan 1/2 complete)
+Status: Batch scraping infrastructure complete. scrape-all CLI running, 349 buildings in dry-run. WAL mode active. Next: APScheduler cron + Google Sheets status push (03-02).
+Last activity: 2026-02-20 - Built batch scraping infrastructure (scraper registry, runner, batch orchestrator, scrape-all CLI, WAL mode).
 
 Progress: [█████████░] 76%
 
@@ -130,6 +130,10 @@ Progress: [█████████░] 76%
 
 ## Key Decisions (this session)
 
+- [2026-02-20]: PLATFORM_SCRAPERS centralized in registry.py — eliminates duplicate dicts in scrape.py and push_availability.py
+- [2026-02-20]: SQLite WAL mode + 30s busy_timeout enabled on engine connect for safe concurrent batch writes
+- [2026-02-20]: Clear-on-failure semantics in batch runner — units deleted on scraper error (stale data is not real data)
+- [2026-02-20]: Per-platform semaphores: browser platforms (Crawl4AI/Playwright) concurrency=1, HTTP platforms (sightmap, appfolio) concurrency=2
 - [2026-02-20]: LLM scraper now uses Crawl4AI for subpage probing (not httpx — httpx gets 403 on Entrata/MRI sites)
 - [2026-02-20]: LLM extraction instruction updated to accept floor plan names as unit identifiers — Entrata floor plan pages don't expose individual unit numbers; floor plan level data is still useful
 - [2026-02-20]: AppFolio Sedgwick: use rentcafe_api_token for subdomain + rentcafe_property_id for address filter (avoids unique URL constraint)
@@ -160,5 +164,5 @@ Progress: [█████████░] 76%
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: LLM scraper fixed to probe /floorplans. AppFolio Sedgwick (1325 N Wells 3 units, Arco Old Town 4 units) working. SightMap expanded to 58 buildings via api.js fix. 310/407 (76%) working. Next: validate Hugo/MILA, test Entrata LLM with real key, batch scan needs_classification for SecureCafe.
-Resume file: .planning/phases/02-scrapers/.continue-here.md
+Stopped at: Completed 03-01-PLAN.md — batch scraping infrastructure (scraper registry, runner, batch orchestrator, WAL mode, scrape-all CLI). scrape-all --dry-run --skip-sync lists 349 buildings. Next: 03-02-PLAN.md (APScheduler cron, Sheets status push, rotating log, scrape_runs pruning).
+Resume file: .planning/phases/03-scheduler/03-02-PLAN.md
