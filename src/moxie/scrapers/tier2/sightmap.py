@@ -45,7 +45,7 @@ def _extract_embed_id(building_url: str) -> str:
     parsed = urlparse(building_url.rstrip("/"))
     base = f"{parsed.scheme}://{parsed.netloc}"
     urls_to_try = [building_url]
-    for subpath in ["/floorplans", "/floorplans/", "/floor-plans", "/availability"]:
+    for subpath in ["/floorplans", "/floorplans/", "/floor-plans", "/availability", "/sightmap"]:
         candidate = urljoin(base + "/", subpath.lstrip("/"))
         if candidate not in urls_to_try:
             urls_to_try.append(candidate)
@@ -58,7 +58,8 @@ def _extract_embed_id(building_url: str) -> str:
                 continue
             if r.status_code != 200:
                 continue
-            match = re.search(r"sightmap\.com/embed/([a-z0-9]+)", r.text, re.IGNORECASE)
+            # Exclude the loader script sightmap.com/embed/api.js — we want the embed ID
+            match = re.search(r"sightmap\.com/embed/(?!api(?:\.js)?)([a-z0-9]+)", r.text, re.IGNORECASE)
             if match:
                 return match.group(1)
 
