@@ -2,7 +2,7 @@
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from moxie.db.models import Building
 from moxie.db.session import SessionLocal
@@ -34,6 +34,23 @@ _semaphores: dict[str, threading.Semaphore] = {
 _default_sem = threading.Semaphore(1)
 
 MAX_WORKERS = 8  # Thread pool size — most threads block on I/O or semaphore
+
+
+def _prune_old_runs(days: int = 30) -> int:
+    """Delete scrape_runs rows older than `days` days. Returns count deleted."""
+    from moxie.db.models import ScrapeRun
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    db = SessionLocal()
+    try:
+        count = db.query(ScrapeRun).filter(ScrapeRun.run_at < cutoff).delete()
+        db.commit()
+        logger.info(f"Pruned {count} scrape_runs older than {days} days")
+        return count
+    except Exception as e:
+        logger.error(f"Failed to prune old scrape_runs: {e}")
+        return 0
+    finally:
+        db.close()
 
 
 def _scrape_with_semaphore(building_id: int, name: str, url: str, platform: str) -> dict:
@@ -157,5 +174,24 @@ def run_batch(*, skip_sheets_sync: bool = False, dry_run: bool = False) -> list[
         f"=== Batch complete: {successes} ok, {failures} failed, "
         f"{total_units} total units, {elapsed:.0f}s elapsed ==="
     )
+
+    # Step 4: Push status to Google Sheets
+    from moxie.scheduler.sheets_status import push_batch_status
+    push_batch_status(results)
+
+    # Step 5: Push updated availability data to Google Sheets
+    try:
+        from moxie.sync.push_availability import push_availability
+        db = SessionLocal()
+        try:
+            count = push_availability(db)
+            logger.info(f"Pushed {count} units to Availability tab")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to push availability to Sheets: {e}")
+
+    # Step 6: Prune old scrape_runs
+    _prune_old_runs()
 
     return results
