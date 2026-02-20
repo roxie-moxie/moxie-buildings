@@ -6,6 +6,7 @@ save_scrape_result(): centralized DB write function called by all scrapers.
 """
 from datetime import datetime, timezone
 from typing import Protocol
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from moxie.db.models import Building, Unit, ScrapeRun
 from moxie.normalizer import normalize
@@ -51,11 +52,25 @@ def save_scrape_result(
         db.query(Unit).filter(Unit.building_id == building.id).delete()
 
         if raw_units:
+            saved_count = 0
             for raw in raw_units:
-                unit_dict = normalize(raw, building.id)
-                db.add(Unit(**unit_dict))
-            building.consecutive_zero_count = 0
-            building.last_scrape_status = "success"
+                try:
+                    unit_dict = normalize(raw, building.id)
+                    db.add(Unit(**unit_dict))
+                    saved_count += 1
+                except (ValidationError, ValueError):
+                    # Skip units with unparseable fields (e.g. rent="Call", missing bed type)
+                    pass
+            if saved_count > 0:
+                building.consecutive_zero_count = 0
+                building.last_scrape_status = "success"
+            else:
+                # All units had unparseable data — treat as zero-unit result
+                building.consecutive_zero_count = (building.consecutive_zero_count or 0) + 1
+                if building.consecutive_zero_count >= CONSECUTIVE_ZERO_THRESHOLD:
+                    building.last_scrape_status = "needs_attention"
+                else:
+                    building.last_scrape_status = "success"
         else:
             building.consecutive_zero_count = (building.consecutive_zero_count or 0) + 1
             if building.consecutive_zero_count >= CONSECUTIVE_ZERO_THRESHOLD:

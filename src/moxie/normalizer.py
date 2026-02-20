@@ -107,10 +107,17 @@ class UnitInput(BaseModel):
     @field_validator("rent", mode="before")
     @classmethod
     def normalize_rent(cls, v: Any) -> int:
-        """Return rent as integer cents. Strips $, commas, /mo, 'Starting at', and decimal suffixes."""
+        """Return rent as integer cents. Strips $, commas, /mo, 'Starting at', and decimal suffixes.
+
+        Non-numeric placeholders like 'Call', 'N/A', 'Contact', 'TBD' raise ValueError
+        to signal that the unit should be skipped (no public price).
+        """
         s = str(v).strip()
-        # Strip "Starting at" prefix (Funnel-style floor plan pricing)
+        # Reject non-numeric placeholder values — unit has no public price
         s_lower = s.lower()
+        if s_lower in ("call", "n/a", "contact", "tbd", "inquire", "", "0"):
+            raise ValueError(f"Cannot parse rent value: {v!r}")
+        # Strip "Starting at" prefix (Funnel-style floor plan pricing)
         if s_lower.startswith("starting at"):
             s = s[len("starting at"):].strip()
         s = s.replace("$", "").replace(",", "").replace("/mo", "").strip()

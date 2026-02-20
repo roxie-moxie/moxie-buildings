@@ -173,21 +173,32 @@ def scrape(building: Building) -> list[dict]:
     """
     Scrape unit availability from a SecureCafe-powered building.
 
-    1. Renders the marketing site to discover the SecureCafe URL.
+    1. Renders the marketing site (and subpages) to discover the SecureCafe URL.
     2. Constructs and fetches the availableunits.aspx page.
     3. Parses floor plan sections and unit rows from rendered HTML.
     """
-    # Step 1: Discover SecureCafe URL from marketing site
-    marketing_html = asyncio.run(_fetch_rendered_html(building.url))
-    if not marketing_html:
-        raise SecureCafeScraperError(
-            f"Crawl4AI returned empty HTML for {building.url}"
-        )
+    # Step 1: Discover SecureCafe URL from marketing site.
+    # Try homepage first, then common floor plan subpages — some buildings only
+    # link to SecureCafe from their floorplans/floor-plans page.
+    base_url: str | None = None
+    base_site = building.url.rstrip("/")
+    candidate_urls = [
+        building.url,
+        f"{base_site}/floorplans",
+        f"{base_site}/floor-plans",
+    ]
 
-    base_url = _discover_securecafe_url(marketing_html)
+    for candidate in candidate_urls:
+        marketing_html = asyncio.run(_fetch_rendered_html(candidate))
+        if not marketing_html:
+            continue
+        base_url = _discover_securecafe_url(marketing_html)
+        if base_url:
+            break
+
     if not base_url:
         raise SecureCafeScraperError(
-            f"No SecureCafe URL found on {building.url}"
+            f"No SecureCafe URL found on {building.url} or its floorplans subpages"
         )
 
     # Step 2: Construct and fetch availableunits page
