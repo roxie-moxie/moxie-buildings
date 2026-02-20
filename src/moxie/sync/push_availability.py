@@ -21,22 +21,7 @@ from moxie.db.models import Building, Unit
 from moxie.db.session import get_db
 from moxie.scrapers.base import save_scrape_result
 from moxie.scrapers.platform_detect import detect_platform
-
-# Duplicated from scrape.py — keep in sync
-PLATFORM_SCRAPERS = {
-    "rentcafe": "moxie.scrapers.tier2.securecafe",
-    "ppm":      "moxie.scrapers.tier1.ppm",
-    "funnel":   "moxie.scrapers.tier2.funnel",
-    "appfolio": "moxie.scrapers.tier2.appfolio",
-    "bozzuto":  "moxie.scrapers.tier2.bozzuto",
-    "realpage":  "moxie.scrapers.tier2.realpage",
-    "groupfox": "moxie.scrapers.tier2.groupfox",
-    "sightmap": "moxie.scrapers.tier2.sightmap",
-    # Entrata, MRI: no dedicated scraper yet — use LLM as fallback
-    "entrata":  "moxie.scrapers.tier3.llm",
-    "mri":      "moxie.scrapers.tier3.llm",
-    "llm":      "moxie.scrapers.tier3.llm",
-}
+from moxie.scrapers.registry import PLATFORM_SCRAPERS
 
 
 def _format_rent(rent_cents: int) -> str:
