@@ -23,7 +23,7 @@ from moxie.scrapers.base import save_scrape_result
 from moxie.scrapers.platform_detect import detect_platform
 
 PLATFORM_SCRAPERS = {
-    "rentcafe": "moxie.scrapers.tier1.rentcafe",
+    "rentcafe": "moxie.scrapers.tier2.securecafe",
     "ppm":      "moxie.scrapers.tier1.ppm",
     "funnel":   "moxie.scrapers.tier2.funnel",
     "appfolio": "moxie.scrapers.tier2.appfolio",
