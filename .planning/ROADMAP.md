@@ -84,10 +84,12 @@ Plans:
   3. An admin can disable an agent account and the agent's JWT is no longer accepted by protected endpoints after the account is deactivated
   4. An admin can view the full building list as synced from Google Sheets via the /buildings endpoint (name, URL, neighborhood, management company, scraper type)
   5. An admin can trigger a re-scrape for a specific building via the /admin/rescrape endpoint and poll for completion — the scrape_runs table reflects the new run when done
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — Infrastructure: User model, migration, FastAPI deps, auth helpers, settings, app factory, create-admin CLI
+- [ ] 04-02-PLAN.md — Endpoints: auth login, admin user CRUD, buildings list, re-scrape trigger/poll, unit search with filters
+- [ ] 04-03-PLAN.md — Integration tests: TestClient suite covering all auth, admin, search, and re-scrape behaviors
 
 ### Phase 5: Frontend
 **Goal**: Agents can log in, search and filter all available units, see data freshness per building, and the admin can manage agent accounts and monitor scrape health — all from the browser with no manual API calls required
@@ -114,5 +116,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 8/9 | In Progress|  |
 | 3. Scheduler | 2/2 | Complete   | 2026-02-20 |
-| 4. API Layer | 0/TBD | Not started | - |
+| 4. API Layer | 0/3 | Not started | - |
 | 5. Frontend | 0/TBD | Not started | - |
