@@ -167,6 +167,6 @@ Progress: [██████████] 78%
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: Completed 03-02-PLAN.md — APScheduler 2 AM cron, Sheets Scrape Status tab, rotating log, scrape_runs pruning. Phase 03 complete. Next: Phase 04 (UI/API).
-Resume file: (phase 03 complete)
+Last session: 2026-02-21
+Stopped at: Phase 4 context gathered — auth, admin bootstrap, search endpoints, re-scrape workflow, deployment/CORS decisions captured.
+Resume file: .planning/phases/04-api-layer/04-CONTEXT.md
