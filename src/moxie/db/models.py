@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, Integer, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -70,3 +70,17 @@ class ScrapeRun(Base):
     error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     building: Mapped["Building"] = relationship(back_populates="scrape_runs")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False, server_default="agent")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(
+        nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
