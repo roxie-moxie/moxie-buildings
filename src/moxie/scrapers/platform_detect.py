@@ -33,6 +33,7 @@ PLATFORM_PATTERNS: list[tuple[str, str]] = [
     ("bozzuto", "bozzuto.com"),
     ("groupfox", "groupfox.com"),
     ("appfolio", "appfolio.com"),
+    ("sightmap", "sightmap.com"),
 ]
 
 KNOWN_PLATFORMS: frozenset[str] = frozenset({

@@ -120,7 +120,7 @@ async def trigger_rescrape(building_id: int, db: Session = Depends(get_db)) -> R
             building_id=building_id,
             building_name=building.name,
             building_url=building.url,
-            platform=building.platform or "llm",
+            platform=building.platform if building.platform and building.platform not in ("needs_classification",) else "llm",
         )
     )
 
