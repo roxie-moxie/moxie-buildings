@@ -64,6 +64,9 @@ def _make_fake_crawler_ctx(extracted_content):
     result.extracted_content = extracted_content
     result.links = {}   # Pass 1: no internal links → fall back to original URL
     result.html = ""    # Pass 1 also checks .html in some paths
+    result.success = True          # _probe_subpage checks this
+    result.status_code = 200       # _probe_subpage checks this after .success
+    result.markdown = ""           # _probe_subpage checks this for content keywords
 
     mock_crawler = MagicMock()
     mock_crawler.arun = AsyncMock(return_value=result)

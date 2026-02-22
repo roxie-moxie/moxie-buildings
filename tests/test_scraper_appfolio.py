@@ -5,39 +5,41 @@ Uses static HTML fixtures for parse tests (no network calls).
 Uses pytest-httpx to mock HTTP responses for _fetch_html() tests.
 """
 import pytest
-from moxie.scrapers.tier2.appfolio import _parse_html, _fetch_html, AppFolioScraperError
+from moxie.scrapers.tier2.appfolio import _parse_listings_html, _fetch_html, AppFolioScraperError
 
 # ---------------------------------------------------------------------------
 # Static HTML fixture
 # ---------------------------------------------------------------------------
 
 SAMPLE_HTML = """
-<div class="listing-item">
-  <span class="bedroom-count">2 Bedrooms</span>
-  <span class="price">$2,500</span>
-  <span class="available-date">April 1, 2026</span>
-  <span class="unit-number">3B</span>
+<div class="js-listing-item">
+  <img alt="123 Main St , Unit 3B, Chicago, IL 60610" />
+  <div class="detail-box__value">$2,500</div>
+  <div class="detail-box__value">2 bd / 1 ba</div>
+  <div class="js-listing-available">April 1, 2026</div>
 </div>
 """
 
 MULTI_UNIT_HTML = """
-<div class="listing-item">
-  <span class="bedroom-count">Studio</span>
-  <span class="price">$1,300</span>
-  <span class="available-date">Available Now</span>
-  <span class="unit-number">1A</span>
+<div class="js-listing-item">
+  <img alt="123 Main St , Unit 1A, Chicago, IL 60610" />
+  <div class="detail-box__value">$1,300</div>
+  <div class="detail-box__value">0 bd / 1 ba</div>
+  <div class="js-listing-available">Now</div>
 </div>
-<div class="listing-item">
-  <span class="bedroom-count">1 Bedroom</span>
-  <span class="price">$1,800</span>
-  <span class="available-date">March 15, 2026</span>
-  <span class="unit-number">2C</span>
+<div class="js-listing-item">
+  <img alt="123 Main St , Unit 2C, Chicago, IL 60610" />
+  <div class="detail-box__value">$1,800</div>
+  <div class="detail-box__value">1 bd / 1 ba</div>
+  <div class="js-listing-available">March 15, 2026</div>
 </div>
 """
 
 INCOMPLETE_HTML = """
-<div class="listing-item">
-  <span class="price">$2,500</span>
+<div class="js-listing-item">
+  <img alt="123 Main St , Chicago, IL 60610" />
+  <div class="detail-box__value">$2,500</div>
+  <div class="detail-box__value">2 bd / 1 ba</div>
 </div>
 """
 
@@ -52,47 +54,47 @@ NO_UNITS_HTML = """
 
 
 # ---------------------------------------------------------------------------
-# _parse_html() tests — no network, pure HTML parsing
+# _parse_listings_html() tests — no network, pure HTML parsing
 # ---------------------------------------------------------------------------
 
 class TestParseHtml:
     def test_parse_html_empty_returns_empty_list(self):
         """Empty string returns empty list without error."""
-        result = _parse_html("")
+        result = _parse_listings_html("")
         assert result == []
 
     def test_parse_html_no_units_returns_empty(self):
-        """HTML with no matching listing-item/unit-card selectors returns empty list."""
-        result = _parse_html(NO_UNITS_HTML)
+        """HTML with no matching .js-listing-item selectors returns empty list."""
+        result = _parse_listings_html(NO_UNITS_HTML)
         assert result == []
 
     def test_parse_html_incomplete_rows_skipped(self):
-        """Unit rows missing required bed or rent elements are skipped."""
-        result = _parse_html(INCOMPLETE_HTML)
+        """Cards without 'Unit NNN' in img alt are skipped entirely."""
+        result = _parse_listings_html(INCOMPLETE_HTML)
         assert result == []
 
     def test_parse_html_extracts_units(self):
-        """HTML with listing-item elements returns correct list of dicts."""
-        result = _parse_html(SAMPLE_HTML)
+        """HTML with .js-listing-item elements returns correct list of dicts."""
+        result = _parse_listings_html(SAMPLE_HTML)
         assert len(result) == 1
 
     def test_parse_html_unit_fields(self):
         """Extracted unit has correct field values."""
-        result = _parse_html(SAMPLE_HTML)
+        result = _parse_listings_html(SAMPLE_HTML)
         unit = result[0]
         assert unit["unit_number"] == "3B"
-        assert unit["bed_type"] == "2 Bedrooms"
+        assert unit["bed_type"] == "2 bd / 1 ba"
         assert unit["rent"] == "$2,500"
         assert unit["availability_date"] == "April 1, 2026"
 
     def test_parse_html_multiple_units(self):
-        """Multiple listing-item elements all extracted."""
-        result = _parse_html(MULTI_UNIT_HTML)
+        """Multiple .js-listing-item elements all extracted."""
+        result = _parse_listings_html(MULTI_UNIT_HTML)
         assert len(result) == 2
 
     def test_parse_html_returns_list_of_dicts(self):
         """Return type is list[dict] with expected keys."""
-        result = _parse_html(MULTI_UNIT_HTML)
+        result = _parse_listings_html(MULTI_UNIT_HTML)
         for unit in result:
             assert isinstance(unit, dict)
             assert "unit_number" in unit
@@ -100,29 +102,29 @@ class TestParseHtml:
             assert "rent" in unit
             assert "availability_date" in unit
 
-    def test_parse_html_missing_unit_number_defaults_to_na(self):
-        """Unit rows without unit number element default to 'N/A'."""
+    def test_parse_html_missing_unit_number_skipped(self):
+        """Cards without 'Unit NNN' in img alt are skipped entirely."""
         html = """
-        <div class="listing-item">
-          <span class="bedroom-count">Studio</span>
-          <span class="price">$1,200</span>
-          <span class="available-date">Available Now</span>
+        <div class="js-listing-item">
+          <img alt="123 Main St , Chicago, IL 60610" />
+          <div class="detail-box__value">$1,200</div>
+          <div class="detail-box__value">0 bd / 1 ba</div>
+          <div class="js-listing-available">Now</div>
         </div>
         """
-        result = _parse_html(html)
-        assert len(result) == 1
-        assert result[0]["unit_number"] == "N/A"
+        result = _parse_listings_html(html)
+        assert result == []
 
     def test_parse_html_missing_availability_defaults_to_available_now(self):
-        """Unit rows without availability element default to 'Available Now'."""
+        """Cards without .js-listing-available default to 'Available Now'."""
         html = """
-        <div class="listing-item">
-          <span class="bedroom-count">1 Bedroom</span>
-          <span class="price">$1,600</span>
-          <span class="unit-number">4D</span>
+        <div class="js-listing-item">
+          <img alt="123 Main St , Unit 4D, Chicago, IL 60610" />
+          <div class="detail-box__value">$1,600</div>
+          <div class="detail-box__value">1 bd / 1 ba</div>
         </div>
         """
-        result = _parse_html(html)
+        result = _parse_listings_html(html)
         assert len(result) == 1
         assert result[0]["availability_date"] == "Available Now"
 
