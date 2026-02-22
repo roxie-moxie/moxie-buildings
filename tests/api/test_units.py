@@ -164,16 +164,21 @@ class TestUnitSearch:
         assert data["units"][0]["availability_date"] == "2026-03-01"
 
     def test_available_now_included_with_date_filter(self, client, agent_headers, db_session):
+        from datetime import date
+        today = date.today().strftime("%Y-%m-%d")
         seed_building_with_units(db_session, "Test Building", "River North", [
-            {"unit_number": "101", "bed_type": "1BR", "rent_cents": 200000, "availability_date": "Available Now"},
-            {"unit_number": "102", "bed_type": "1BR", "rent_cents": 200000, "availability_date": "2026-04-01"},
+            {"unit_number": "101", "bed_type": "1BR", "rent_cents": 200000,
+             "availability_date": today},          # normalized form of "Available Now"
+            {"unit_number": "102", "bed_type": "1BR", "rent_cents": 200000,
+             "availability_date": "2026-04-01"},   # future unit, excluded by cutoff
         ])
-        # available_before=2026-03-01 should include "Available Now" unit but not the April unit
+        # available_before=2026-03-01 should include the "Available Now" unit (today <= 2026-03-01)
+        # but not the April unit
         resp = client.get("/units", params={"available_before": "2026-03-01"}, headers=agent_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
-        assert data["units"][0]["availability_date"] == "Available Now"
+        assert data["units"][0]["unit_number"] == "101"
 
     def test_filter_by_neighborhood_single(self, client, agent_headers, db_session):
         seed_building_with_units(db_session, "River North Building", "River North", [
