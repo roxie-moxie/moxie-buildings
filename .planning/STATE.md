@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 6 of 7 (Fix Data Pipeline Bugs) — IN PROGRESS (1/1 plans done)
-Status: Phase 06 plan 01 complete. Fixed Available Now API filter (dead or_() replaced with <=) and unified runner failure handler to delegate to save_scrape_result(scrape_succeeded=False). 71 tests passing.
-Last activity: 2026-02-22 - Fixed AGENT-01 and INFRA-03 data pipeline bugs (06-01).
+Phase: 7 of 7 (Scraper Code Test Cleanup) — IN PROGRESS (1/1 plans done)
+Status: Phase 07 plan 01 complete. Deleted orphaned tier1/rentcafe.py stub, fixed 8 broken test items (1 collection error + 7 failures), added sightmap to KNOWN_PLATFORMS. pytest tests/ passes 283 tests with 0 failures and no --ignore flags.
+Last activity: 2026-02-22 - Cleaned up scraper code and tests (07-01). SCRAP-01 closed.
 
-Progress: [████████████] 92%
+Progress: [████████████] 100%
 
 ---
 
@@ -192,6 +192,12 @@ Progress: [████████████] 92%
 | 4 | Investigate remaining building groups (needs_classification, AppFolio, RealPage, Bozzuto, Entrata, MRI) | 2026-02-20 | 62510c8 | Verified | [4-validate-next-building-groups-needs-clas](./quick/4-validate-next-building-groups-needs-clas/) |
 | 5 | Fix LLM scraper (Entrata/MRI floorplans probing), AppFolio Sedgwick scraper, SightMap api.js fix | 2026-02-20 | 9872665 | Completed | [5-continue-per-building-validation-pick-un](./quick/5-continue-per-building-validation-pick-un/) |
 
+### Phase 07 Plan 01: Scraper Code Test Cleanup (2026-02-22)
+- tier1/rentcafe.py deleted: registry maps rentcafe platform to tier2/securecafe — tier1 stub was never called in production
+- FakeResult mock in LLM tests must include .success, .status_code, .markdown attributes to satisfy _probe_subpage guard conditions
+- AppFolio parser uses skip-not-default semantics: cards without "Unit NNN" in img[alt] are skipped entirely (not defaulted to N/A)
+- KNOWN_PLATFORMS additions require both: (1) adding to frozenset in platform_detect.py and (2) adding a test asserting membership
+
 ### Phase 06 Plan 01: Fix Data Pipeline Bugs (2026-02-22)
 - Available Now filter: or_() with literal "Available Now" was dead code — normalizer always stores dates as YYYY-MM-DD; simple <= suffices
 - Runner failure path now delegates to save_scrape_result(scrape_succeeded=False) — units retained, not deleted, on scraper exception
@@ -202,5 +208,5 @@ Progress: [████████████] 92%
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 06-01-PLAN.md — Phase 6 plan 1 complete. AGENT-01 and INFRA-03 bugs fixed. 71 tests passing.
-Resume file: .planning/phases/06-fix-data-pipeline-bugs/ (Phase 6, next plan if any)
+Stopped at: Completed 07-01-PLAN.md — Phase 7 plan 1 complete. Dead tier1/rentcafe.py deleted, 8 broken tests fixed, sightmap added to KNOWN_PLATFORMS. 283 tests passing.
+Resume file: .planning/phases/07-scraper-code-test-cleanup/ (Phase 7 complete)

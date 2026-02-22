@@ -19,7 +19,7 @@
 
 ### Scraping — Tier 1 (REST APIs)
 
-- [ ] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
+- [x] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
 - [x] **SCRAP-02**: Entrata buildings (~30-40 buildings) scraped via Entrata's modernized API gateway (legacy gateway deprecated April 2025)
 - [x] **SCRAP-03**: PPM buildings (~18 buildings) scraped via the single centralized availability page at ppmapartments.com/availability — one scraper covers all PPM buildings
 
@@ -86,7 +86,7 @@
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
-| SCRAP-01 | Phase 7 | Pending |
+| SCRAP-01 | Phase 7 | Complete |
 | SCRAP-02 | Phase 2 | Complete |
 | SCRAP-03 | Phase 2 | Complete |
 | SCRAP-04 | Phase 2 | Complete |

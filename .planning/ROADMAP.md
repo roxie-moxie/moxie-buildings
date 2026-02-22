@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: API Layer** - FastAPI auth, filter/search endpoints, and admin endpoints (completed 2026-02-22)
 - [ ] **Phase 5: Frontend** - Agent search UI and admin dashboard wired to the live API
 - [ ] **Phase 6: Fix Data Pipeline Bugs** - Resolve "Available Now" filter mismatch and unify failure-handling behavior
-- [ ] **Phase 7: Scraper Code & Test Cleanup** - Remove orphaned RentCafe stub, fix broken tests, add SightMap to KNOWN_PLATFORMS
+- [x] **Phase 7: Scraper Code & Test Cleanup** - Remove orphaned RentCafe stub, fix broken tests, add SightMap to KNOWN_PLATFORMS (completed 2026-02-22)
 
 ## Phase Details
 
@@ -149,4 +149,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. API Layer | 3/3 | Complete   | 2026-02-22 |
 | 5. Frontend | 0/TBD | Not started | - |
 | 6. Fix Data Pipeline Bugs | 1/1 | Complete   | 2026-02-22 |
-| 7. Scraper Code & Test Cleanup | 0/1 | Not started | - |
+| 7. Scraper Code & Test Cleanup | 1/1 | Complete   | 2026-02-22 |
