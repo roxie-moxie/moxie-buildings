@@ -117,10 +117,10 @@ Plans:
   1. Units scraped as "Available Now" are returned by the API when an agent searches with an availability date filter — no false exclusions
   2. A scraper failure produces the same DB state regardless of entry point (batch runner or CLI): units are retained, building is marked stale
   3. E2E verification: trigger a failure via both batch runner and CLI, confirm identical DB state (units retained, stale flag set)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Fix "Available Now" API filter (AGENT-01), unify runner failure handler (INFRA-03), regression tests
 
 ### Phase 7: Scraper Code & Test Cleanup
 **Goal:** Remove orphaned code, fix broken tests, and add missing platform detection so `pytest` runs cleanly and SCRAP-01 is formally closed
