@@ -17,6 +17,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Scheduler** - Daily batch runner with failure handling and stale flagging (completed 2026-02-20)
 - [x] **Phase 4: API Layer** - FastAPI auth, filter/search endpoints, and admin endpoints (completed 2026-02-22)
 - [ ] **Phase 5: Frontend** - Agent search UI and admin dashboard wired to the live API
+- [ ] **Phase 6: Fix Data Pipeline Bugs** - Resolve "Available Now" filter mismatch and unify failure-handling behavior
+- [ ] **Phase 7: Scraper Code & Test Cleanup** - Remove orphaned RentCafe stub, fix broken tests, add SightMap to KNOWN_PLATFORMS
 
 ## Phase Details
 
@@ -106,10 +108,38 @@ Plans:
 Plans:
 - [ ] 05-01: TBD
 
+### Phase 6: Fix Data Pipeline Bugs
+**Goal:** Resolve the two integration bugs found by the v1.0 audit — the "Available Now" normalizer/API filter mismatch and the dual failure-handling divergence — so the data pipeline behaves correctly and consistently regardless of entry point
+**Depends on:** Phase 4
+**Requirements:** AGENT-01, INFRA-03
+**Gap Closure:** Closes integration and flow gaps from v1.0 audit
+**Success Criteria** (what must be TRUE):
+  1. Units scraped as "Available Now" are returned by the API when an agent searches with an availability date filter — no false exclusions
+  2. A scraper failure produces the same DB state regardless of entry point (batch runner or CLI): units are retained, building is marked stale
+  3. E2E verification: trigger a failure via both batch runner and CLI, confirm identical DB state (units retained, stale flag set)
+**Plans**: TBD
+
+Plans:
+- [ ] 06-01: TBD
+
+### Phase 7: Scraper Code & Test Cleanup
+**Goal:** Remove orphaned code, fix broken tests, and add missing platform detection so `pytest` runs cleanly and SCRAP-01 is formally closed
+**Depends on:** Phase 6
+**Requirements:** SCRAP-01
+**Gap Closure:** Closes SCRAP-01 partial status and tech debt from v1.0 audit
+**Success Criteria** (what must be TRUE):
+  1. The orphaned `rentcafe.py` tier1 stub and its tests are removed — the SecureCafe scraper is the sole RentCafe implementation
+  2. `pytest tests/` runs without `--ignore` flags and all tests pass
+  3. `sightmap` is present in `KNOWN_PLATFORMS` in `platform_detect.py` — validation can recognize SightMap-classified buildings
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -118,3 +148,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Scheduler | 2/2 | Complete   | 2026-02-20 |
 | 4. API Layer | 3/3 | Complete   | 2026-02-22 |
 | 5. Frontend | 0/TBD | Not started | - |
+| 6. Fix Data Pipeline Bugs | 0/TBD | Not started | - |
+| 7. Scraper Code & Test Cleanup | 0/TBD | Not started | - |

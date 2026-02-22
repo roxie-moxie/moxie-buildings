@@ -9,7 +9,7 @@
 
 - [x] **INFRA-01**: System reads building list from Google Sheets and syncs records (building name, URL, neighborhood, management company) to the local database
 - [x] **INFRA-02**: All scrapes run automatically on a daily scheduled basis without manual intervention
-- [x] **INFRA-03**: On scrape failure, last known unit data is retained and the building is marked as stale
+- [ ] **INFRA-03**: On scrape failure, last known unit data is retained and the building is marked as stale
 
 ### Data Model
 
@@ -19,7 +19,7 @@
 
 ### Scraping — Tier 1 (REST APIs)
 
-- [x] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
+- [ ] **SCRAP-01**: Yardi/RentCafe buildings (~220 buildings, 55%) scraped via API — access method requires a spike investigation before implementation
 - [x] **SCRAP-02**: Entrata buildings (~30-40 buildings) scraped via Entrata's modernized API gateway (legacy gateway deprecated April 2025)
 - [x] **SCRAP-03**: PPM buildings (~18 buildings) scraped via the single centralized availability page at ppmapartments.com/availability — one scraper covers all PPM buildings
 
@@ -37,7 +37,7 @@
 
 ### Agent Interface
 
-- [x] **AGENT-01**: Agent can log in with credentials created by an admin
+- [ ] **AGENT-01**: Agent can log in with credentials created by an admin
 - [ ] **AGENT-02**: Agent can filter units by bed type (multi-select: Studio, Convertible, 1BR, 1BR+Den, 2BR, 3BR, 4BR+)
 - [ ] **AGENT-03**: Agent can filter units by rent range (min and/or max monthly rent)
 - [ ] **AGENT-04**: Agent can filter units by availability date ("available on or before" a selected date)
@@ -82,11 +82,11 @@
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 3 | Complete |
-| INFRA-03 | Phase 2 | Complete |
+| INFRA-03 | Phase 6 | Pending |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
-| SCRAP-01 | Phase 2 | Complete |
+| SCRAP-01 | Phase 7 | Pending |
 | SCRAP-02 | Phase 2 | Complete |
 | SCRAP-03 | Phase 2 | Complete |
 | SCRAP-04 | Phase 2 | Complete |
@@ -95,7 +95,7 @@
 | SCRAP-07 | Phase 2 | Complete |
 | SCRAP-08 | Phase 2 | Complete |
 | SCRAP-09 | Phase 2 | Complete |
-| AGENT-01 | Phase 4 | Complete |
+| AGENT-01 | Phase 6 | Pending |
 | AGENT-02 | Phase 5 | Pending |
 | AGENT-03 | Phase 5 | Pending |
 | AGENT-04 | Phase 5 | Pending |
@@ -114,4 +114,4 @@
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-18 after 01-02-PLAN completion (DATA-03 complete)*
+*Last updated: 2026-02-21 — gap closure phases 6-7 added per v1.0 audit; INFRA-03, SCRAP-01, AGENT-01 reset to Pending*
