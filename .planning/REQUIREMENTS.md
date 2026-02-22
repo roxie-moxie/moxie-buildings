@@ -49,8 +49,8 @@
 
 - [x] **ADMIN-01**: Admin can create new agent accounts (name, email, password)
 - [x] **ADMIN-02**: Admin can disable or deactivate agent accounts
-- [ ] **ADMIN-03**: Admin can view the full building list as synced from Google Sheets (name, URL, neighborhood, management company, scraper type)
-- [ ] **ADMIN-04**: Admin can manually trigger a re-scrape for a specific building and see when it completes
+- [x] **ADMIN-03**: Admin can view the full building list as synced from Google Sheets (name, URL, neighborhood, management company, scraper type)
+- [x] **ADMIN-04**: Admin can manually trigger a re-scrape for a specific building and see when it completes
 
 ## v2 Requirements
 
@@ -104,8 +104,8 @@
 | AGENT-07 | Phase 5 | Pending |
 | ADMIN-01 | Phase 4 | Complete |
 | ADMIN-02 | Phase 4 | Complete |
-| ADMIN-03 | Phase 4 | Pending |
-| ADMIN-04 | Phase 4 | Pending |
+| ADMIN-03 | Phase 4 | Complete |
+| ADMIN-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 26 total

@@ -9,9 +9,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 4 of 5 (API Layer) — IN PROGRESS (1/3 plans done)
-Status: Phase 04 plan 01 complete. FastAPI scaffold operational: User model + Alembic migration, PyJWT auth helpers, get_current_user/require_admin dependency chain, CORSMiddleware from env, GET /health, create-admin CLI.
-Last activity: 2026-02-22 - Built FastAPI scaffold, User model, JWT auth, create-admin CLI (04-01).
+Phase: 4 of 5 (API Layer) — IN PROGRESS (2/3 plans done)
+Status: Phase 04 plan 02 complete. Full API contract delivered: POST /auth/login, /admin/* (users + buildings + re-scrape), GET /units with multi-select filters. All 5 requirements (AGENT-01, ADMIN-01..04) met.
+Last activity: 2026-02-22 - Built all API endpoint routers, schemas, wired into FastAPI app (04-02).
 
 Progress: [███████████] 82%
 
@@ -165,6 +165,15 @@ Progress: [███████████] 82%
 - create-admin CLI registered as pyproject.toml entry point (create-admin = scripts.create_admin:main)
 - uv sync blocked by locked scrape-all.exe; packages installed via uv pip install --python venv/python; runs fine with --no-sync
 
+### Phase 04 Plan 02: API Endpoints (2026-02-22)
+- Admin router uses router-level dependencies=[Depends(require_admin)] — single declaration protects all /admin/* endpoints
+- Re-scrape uses asyncio.create_task + asyncio.to_thread — scrape_one_building is synchronous/blocking
+- In-memory _jobs/_building_jobs dicts for job tracking — resets on restart, no Redis needed for internal tool
+- GET /units returns UnitsResponse wrapper (units + total) not bare list — extensible for pagination later
+- available_before filter always includes Available Now units via or_() — always relevant regardless of date
+- rent_min/rent_max are dollars in API; DB stores cents — multiply by 100 in filters
+- Non-canonical units excluded by default (non_canonical == False) — Phase 1 decision carried forward
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
@@ -178,5 +187,5 @@ Progress: [███████████] 82%
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 04-01-PLAN.md — FastAPI scaffold, User model, JWT auth, create-admin CLI operational.
-Resume file: .planning/phases/04-api-layer/04-02-PLAN.md
+Stopped at: Completed 04-02-PLAN.md — All API endpoint routers (auth, admin, units) built and wired into app.
+Resume file: .planning/phases/04-api-layer/04-03-PLAN.md
