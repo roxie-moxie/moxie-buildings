@@ -34,6 +34,7 @@ detect-platforms = "scripts.detect_platforms:main"
 rentcafe-creds = "scripts.extract_rentcafe_credentials:main"
 dev = "scripts.dev_bootstrap:main"
 validate-building = "moxie.sync.push_availability:main"
+create-admin = "scripts.create_admin:main"
 
 [build-system]
 requires = ["hatchling"]
