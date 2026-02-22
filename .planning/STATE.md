@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 4 of 5 (API Layer) — IN PROGRESS (2/3 plans done)
-Status: Phase 04 plan 02 complete. Full API contract delivered: POST /auth/login, /admin/* (users + buildings + re-scrape), GET /units with multi-select filters. All 5 requirements (AGENT-01, ADMIN-01..04) met.
-Last activity: 2026-02-22 - Built all API endpoint routers, schemas, wired into FastAPI app (04-02).
+Phase: 4 of 5 (API Layer) — COMPLETE (3/3 plans done)
+Status: Phase 04 plan 03 complete. 42-test integration suite with in-memory SQLite isolation proves all 5 requirements (AGENT-01, ADMIN-01..04) via full HTTP request-response cycle. Phase 4 complete.
+Last activity: 2026-02-22 - Built API integration test suite: conftest, test_auth, test_admin, test_units (04-03).
 
-Progress: [███████████] 82%
+Progress: [████████████] 90%
 
 ---
 
@@ -174,6 +174,14 @@ Progress: [███████████] 82%
 - rent_min/rent_max are dollars in API; DB stores cents — multiply by 100 in filters
 - Non-canonical units excluded by default (non_canonical == False) — Phase 1 decision carried forward
 
+### Phase 04 Plan 03: API Integration Tests (2026-02-22)
+- StaticPool in-memory SQLite + dependency_overrides[get_db] for clean per-test isolation without file DB
+- Fixture chain: db_session -> client -> admin_user/agent_user -> admin_headers/agent_headers
+- Patch scrape_one_building at moxie.scheduler.runner (not admin module) — local import pattern means name not at module level
+- 409 duplicate rescrape test uses direct _building_jobs dict injection — async tasks complete too fast for timing-based mocks
+- FastAPI HTTPBearer returns 401 (not 403) for missing Authorization header in current Starlette version
+- 42 tests total: 9 auth + 12 admin + 21 units/rescrape — all passing, exceeds 30+ target
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
@@ -187,5 +195,5 @@ Progress: [███████████] 82%
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 04-02-PLAN.md — All API endpoint routers (auth, admin, units) built and wired into app.
-Resume file: .planning/phases/04-api-layer/04-03-PLAN.md
+Stopped at: Completed 04-03-PLAN.md — Phase 4 (API Layer) complete. 42 integration tests passing. Phase 5 (Scheduler/Polish) is next.
+Resume file: .planning/phases/05-scheduler/ (Phase 5)
