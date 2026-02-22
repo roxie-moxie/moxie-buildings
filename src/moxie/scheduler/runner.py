@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from moxie.db.models import Building, Unit, ScrapeRun
 from moxie.db.session import SessionLocal
+from moxie.scrapers.base import save_scrape_result
 from moxie.scrapers.registry import PLATFORM_SCRAPERS
 from moxie.normalizer import normalize
 from pydantic import ValidationError
@@ -99,21 +100,17 @@ def scrape_one_building(building_id: int, building_name: str, building_url: str,
         error_msg = f"[{type(e).__name__}] {str(e)[:500]}"
         result["error"] = error_msg
 
-        # Clear-on-failure: delete units (user decision — stale data is NOT real data)
+        # Retain units on failure, mark building stale — delegates to save_scrape_result()
         try:
             building = db.get(Building, building_id)
             if building:
-                db.query(Unit).filter(Unit.building_id == building.id).delete()
-                building.last_scrape_status = "failed"
-                building.last_scraped_at = now
-                db.add(ScrapeRun(
-                    building_id=building.id,
-                    run_at=now,
-                    status="failed",
-                    unit_count=0,
+                save_scrape_result(
+                    db,
+                    building,
+                    raw_units=[],
+                    scrape_succeeded=False,
                     error_message=error_msg[:1000],
-                ))
-                db.commit()
+                )
         except Exception:
             logger.error(f"Failed to record failure for {building_name}: {e}")
 

@@ -68,14 +68,9 @@ def search_units(
         query = query.filter(Unit.rent_cents <= rent_max * 100)
 
     if available_before is not None:
-        # Include units available on or before the date AND 'Available Now' units
-        from sqlalchemy import or_
-        query = query.filter(
-            or_(
-                Unit.availability_date == "Available Now",
-                Unit.availability_date <= available_before,
-            )
-        )
+        # "Available Now" units are stored as today's YYYY-MM-DD by the normalizer,
+        # so a simple <= comparison includes them for any same-day or future cutoff.
+        query = query.filter(Unit.availability_date <= available_before)
 
     if neighborhood:
         query = query.filter(Building.neighborhood.in_(neighborhood))
