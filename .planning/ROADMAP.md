@@ -116,5 +116,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 3/3 | Complete | 2026-02-18 |
 | 2. Scrapers | 8/9 | In Progress|  |
 | 3. Scheduler | 2/2 | Complete   | 2026-02-20 |
-| 4. API Layer | 0/3 | Not started | - |
+| 4. API Layer | 1/3 | In Progress|  |
 | 5. Frontend | 0/TBD | Not started | - |

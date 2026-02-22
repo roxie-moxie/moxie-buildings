@@ -37,7 +37,7 @@
 
 ### Agent Interface
 
-- [ ] **AGENT-01**: Agent can log in with credentials created by an admin
+- [x] **AGENT-01**: Agent can log in with credentials created by an admin
 - [ ] **AGENT-02**: Agent can filter units by bed type (multi-select: Studio, Convertible, 1BR, 1BR+Den, 2BR, 3BR, 4BR+)
 - [ ] **AGENT-03**: Agent can filter units by rent range (min and/or max monthly rent)
 - [ ] **AGENT-04**: Agent can filter units by availability date ("available on or before" a selected date)
@@ -47,8 +47,8 @@
 
 ### Admin Interface
 
-- [ ] **ADMIN-01**: Admin can create new agent accounts (name, email, password)
-- [ ] **ADMIN-02**: Admin can disable or deactivate agent accounts
+- [x] **ADMIN-01**: Admin can create new agent accounts (name, email, password)
+- [x] **ADMIN-02**: Admin can disable or deactivate agent accounts
 - [ ] **ADMIN-03**: Admin can view the full building list as synced from Google Sheets (name, URL, neighborhood, management company, scraper type)
 - [ ] **ADMIN-04**: Admin can manually trigger a re-scrape for a specific building and see when it completes
 
@@ -95,15 +95,15 @@
 | SCRAP-07 | Phase 2 | Complete |
 | SCRAP-08 | Phase 2 | Complete |
 | SCRAP-09 | Phase 2 | Complete |
-| AGENT-01 | Phase 4 | Pending |
+| AGENT-01 | Phase 4 | Complete |
 | AGENT-02 | Phase 5 | Pending |
 | AGENT-03 | Phase 5 | Pending |
 | AGENT-04 | Phase 5 | Pending |
 | AGENT-05 | Phase 5 | Pending |
 | AGENT-06 | Phase 5 | Pending |
 | AGENT-07 | Phase 5 | Pending |
-| ADMIN-01 | Phase 4 | Pending |
-| ADMIN-02 | Phase 4 | Pending |
+| ADMIN-01 | Phase 4 | Complete |
+| ADMIN-02 | Phase 4 | Complete |
 | ADMIN-03 | Phase 4 | Pending |
 | ADMIN-04 | Phase 4 | Pending |
 

@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 3 of 5 (Scheduler) — COMPLETE (2/2 plans done)
-Status: Phase 03 complete. Daily batch automation operational: scrape-all --schedule fires run_batch at 2 AM Central, Scrape Status tab pushed to Google Sheet, rotating log at logs/scrape_batch.log, scrape_runs pruned at 30 days.
-Last activity: 2026-02-20 - Built APScheduler cron, Sheets status push, rotating log, scrape_runs pruning (03-02).
+Phase: 4 of 5 (API Layer) — IN PROGRESS (1/3 plans done)
+Status: Phase 04 plan 01 complete. FastAPI scaffold operational: User model + Alembic migration, PyJWT auth helpers, get_current_user/require_admin dependency chain, CORSMiddleware from env, GET /health, create-admin CLI.
+Last activity: 2026-02-22 - Built FastAPI scaffold, User model, JWT auth, create-admin CLI (04-01).
 
-Progress: [██████████] 78%
+Progress: [███████████] 82%
 
 ---
 
@@ -155,6 +155,16 @@ Progress: [██████████] 78%
 - [2026-02-18]: Sheet-wins platform model — Platform column in Google Sheet is the canonical override
 - [2026-02-18]: Tier by ROI (Roxie direction) — platform scrapers first, management company scrapers second, true one-offs last
 
+### Phase 04 Plan 01: API Foundation (2026-02-22)
+- FastAPI scaffold built: settings, auth helpers, dependency chain, app factory, create-admin CLI
+- PyJWT + pwdlib[argon2] confirmed as current FastAPI recommendations (python-jose/passlib deprecated)
+- 8-hour JWT access tokens; no refresh tokens (one login per work shift)
+- is_active checked on every request in get_current_user (not in JWT payload) — immediate account deactivation
+- User role read from DB on every request (not cached in JWT) — role changes take effect immediately
+- CORS origins from CORS_ORIGINS env var; cannot use wildcard with allow_credentials=True (explicit list required)
+- create-admin CLI registered as pyproject.toml entry point (create-admin = scripts.create_admin:main)
+- uv sync blocked by locked scrape-all.exe; packages installed via uv pip install --python venv/python; runs fine with --no-sync
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
@@ -167,6 +177,6 @@ Progress: [██████████] 78%
 
 ## Session Continuity
 
-Last session: 2026-02-21
-Stopped at: Phase 4 context gathered — auth, admin bootstrap, search endpoints, re-scrape workflow, deployment/CORS decisions captured.
-Resume file: .planning/phases/04-api-layer/04-CONTEXT.md
+Last session: 2026-02-22
+Stopped at: Completed 04-01-PLAN.md — FastAPI scaffold, User model, JWT auth, create-admin CLI operational.
+Resume file: .planning/phases/04-api-layer/04-02-PLAN.md
