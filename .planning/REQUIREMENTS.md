@@ -9,7 +9,7 @@
 
 - [x] **INFRA-01**: System reads building list from Google Sheets and syncs records (building name, URL, neighborhood, management company) to the local database
 - [x] **INFRA-02**: All scrapes run automatically on a daily scheduled basis without manual intervention
-- [ ] **INFRA-03**: On scrape failure, last known unit data is retained and the building is marked as stale
+- [x] **INFRA-03**: On scrape failure, last known unit data is retained and the building is marked as stale
 
 ### Data Model
 
@@ -37,7 +37,7 @@
 
 ### Agent Interface
 
-- [ ] **AGENT-01**: Agent can log in with credentials created by an admin
+- [x] **AGENT-01**: Agent can log in with credentials created by an admin
 - [ ] **AGENT-02**: Agent can filter units by bed type (multi-select: Studio, Convertible, 1BR, 1BR+Den, 2BR, 3BR, 4BR+)
 - [ ] **AGENT-03**: Agent can filter units by rent range (min and/or max monthly rent)
 - [ ] **AGENT-04**: Agent can filter units by availability date ("available on or before" a selected date)
@@ -82,7 +82,7 @@
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 3 | Complete |
-| INFRA-03 | Phase 6 | Pending |
+| INFRA-03 | Phase 6 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Complete |
@@ -95,7 +95,7 @@
 | SCRAP-07 | Phase 2 | Complete |
 | SCRAP-08 | Phase 2 | Complete |
 | SCRAP-09 | Phase 2 | Complete |
-| AGENT-01 | Phase 6 | Pending |
+| AGENT-01 | Phase 6 | Complete |
 | AGENT-02 | Phase 5 | Pending |
 | AGENT-03 | Phase 5 | Pending |
 | AGENT-04 | Phase 5 | Pending |

@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 4 of 5 (API Layer) — COMPLETE (3/3 plans done)
-Status: Phase 04 plan 03 complete. 42-test integration suite with in-memory SQLite isolation proves all 5 requirements (AGENT-01, ADMIN-01..04) via full HTTP request-response cycle. Phase 4 complete.
-Last activity: 2026-02-22 - Built API integration test suite: conftest, test_auth, test_admin, test_units (04-03).
+Phase: 6 of 7 (Fix Data Pipeline Bugs) — IN PROGRESS (1/1 plans done)
+Status: Phase 06 plan 01 complete. Fixed Available Now API filter (dead or_() replaced with <=) and unified runner failure handler to delegate to save_scrape_result(scrape_succeeded=False). 71 tests passing.
+Last activity: 2026-02-22 - Fixed AGENT-01 and INFRA-03 data pipeline bugs (06-01).
 
-Progress: [████████████] 90%
+Progress: [████████████] 92%
 
 ---
 
@@ -192,8 +192,15 @@ Progress: [████████████] 90%
 | 4 | Investigate remaining building groups (needs_classification, AppFolio, RealPage, Bozzuto, Entrata, MRI) | 2026-02-20 | 62510c8 | Verified | [4-validate-next-building-groups-needs-clas](./quick/4-validate-next-building-groups-needs-clas/) |
 | 5 | Fix LLM scraper (Entrata/MRI floorplans probing), AppFolio Sedgwick scraper, SightMap api.js fix | 2026-02-20 | 9872665 | Completed | [5-continue-per-building-validation-pick-un](./quick/5-continue-per-building-validation-pick-un/) |
 
+### Phase 06 Plan 01: Fix Data Pipeline Bugs (2026-02-22)
+- Available Now filter: or_() with literal "Available Now" was dead code — normalizer always stores dates as YYYY-MM-DD; simple <= suffices
+- Runner failure path now delegates to save_scrape_result(scrape_succeeded=False) — units retained, not deleted, on scraper exception
+- Both entry points (runner + individual scrapers) produce identical retain-and-stale DB state on failure by construction
+- Test inspection pattern: use fresh session factory (not shared session) because runner calls db.close() in finally block
+- 71 total tests passing (42 API + 25 save_scrape_result + 3 runner failure + 1 units updated)
+
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 04-03-PLAN.md — Phase 4 (API Layer) complete. 42 integration tests passing. Phase 5 (Scheduler/Polish) is next.
-Resume file: .planning/phases/05-scheduler/ (Phase 5)
+Stopped at: Completed 06-01-PLAN.md — Phase 6 plan 1 complete. AGENT-01 and INFRA-03 bugs fixed. 71 tests passing.
+Resume file: .planning/phases/06-fix-data-pipeline-bugs/ (Phase 6, next plan if any)

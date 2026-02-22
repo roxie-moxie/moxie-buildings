@@ -120,7 +120,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md — Fix "Available Now" API filter (AGENT-01), unify runner failure handler (INFRA-03), regression tests
+- [x] 06-01-PLAN.md — Fix "Available Now" API filter (AGENT-01), unify runner failure handler (INFRA-03), regression tests
 
 ### Phase 7: Scraper Code & Test Cleanup
 **Goal:** Remove orphaned code, fix broken tests, and add missing platform detection so `pytest` runs cleanly and SCRAP-01 is formally closed
@@ -148,5 +148,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Scheduler | 2/2 | Complete   | 2026-02-20 |
 | 4. API Layer | 3/3 | Complete   | 2026-02-22 |
 | 5. Frontend | 0/TBD | Not started | - |
-| 6. Fix Data Pipeline Bugs | 0/TBD | Not started | - |
+| 6. Fix Data Pipeline Bugs | 1/1 | Complete   | 2026-02-22 |
 | 7. Scraper Code & Test Cleanup | 0/TBD | Not started | - |
