@@ -36,7 +36,8 @@ PLATFORM_PATTERNS: list[tuple[str, str]] = [
 ]
 
 KNOWN_PLATFORMS: frozenset[str] = frozenset({
-    "rentcafe", "ppm", "entrata", "mri", "funnel", "realpage", "bozzuto", "groupfox", "appfolio", "llm"
+    "rentcafe", "ppm", "entrata", "mri", "funnel", "realpage", "bozzuto", "groupfox", "appfolio",
+    "sightmap", "llm"
 })
 
 

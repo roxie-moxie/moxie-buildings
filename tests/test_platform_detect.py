@@ -71,3 +71,9 @@ def test_detect_platform_returns_string_not_none_for_known():
     for url, expected_platform in known_cases:
         result = detect_platform(url)
         assert result == expected_platform, f"Expected {expected_platform!r} for {url!r}, got {result!r}"
+
+
+def test_known_platforms_contains_sightmap():
+    """sightmap must be in KNOWN_PLATFORMS (58 buildings classified as sightmap)."""
+    from moxie.scrapers.platform_detect import KNOWN_PLATFORMS
+    assert "sightmap" in KNOWN_PLATFORMS
