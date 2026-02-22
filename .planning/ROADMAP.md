@@ -131,10 +131,10 @@ Plans:
   1. The orphaned `rentcafe.py` tier1 stub and its tests are removed — the SecureCafe scraper is the sole RentCafe implementation
   2. `pytest tests/` runs without `--ignore` flags and all tests pass
   3. `sightmap` is present in `KNOWN_PLATFORMS` in `platform_detect.py` — validation can recognize SightMap-classified buildings
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Delete orphaned RentCafe stub, fix broken LLM/AppFolio tests, add sightmap to KNOWN_PLATFORMS
 
 ## Progress
 
@@ -149,4 +149,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. API Layer | 3/3 | Complete   | 2026-02-22 |
 | 5. Frontend | 0/TBD | Not started | - |
 | 6. Fix Data Pipeline Bugs | 1/1 | Complete   | 2026-02-22 |
-| 7. Scraper Code & Test Cleanup | 0/TBD | Not started | - |
+| 7. Scraper Code & Test Cleanup | 0/1 | Not started | - |
